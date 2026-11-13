@@ -1,0 +1,21 @@
+{
+  "name": "alex",
+  "version": "0.1.0",
+  "description": "Alex Desktop Assistant — Unified Stack",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "alex": "./bin/alex.js"
+  },
+  "scripts": {
+    "alex": "node ./bin/alex.js",
+    "launch": "node ./bin/alex.js launch",
+    "stop": "node ./bin/alex.js stop",
+    "status": "node ./bin/alex.js status",
+    "restart": "node ./bin/alex.js restart",
+    "doctor": "node ./bin/alex.js doctor",
+    "test": "npm --prefix frontend test && python -m pytest backend/tests",
+    "build": "npm --prefix frontend run build"
+  }
+}
+

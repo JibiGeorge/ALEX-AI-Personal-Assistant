@@ -1,0 +1,83 @@
+{
+  "name": "alex-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Alex Electron desktop renderer",
+  "main": "dist-electron/electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"tsc -p tsconfig.electron.json && wait-on http://127.0.0.1:5173 && electron dist-electron/electron/main.js\"",
+    "dev:vite": "vite --host 127.0.0.1",
+    "dev:electron": "tsc -p tsconfig.electron.json && electron dist-electron/electron/main.js",
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json && vite build",
+    "build:backend": "bash ../scripts/build-backend.sh",
+    "test": "vitest run",
+    "test:packaging": "node --test ../scripts/verify-sidecar.test.mjs",
+    "verify:sidecar": "node ../scripts/verify-sidecar.mjs",
+    "preview": "vite preview --host 127.0.0.1",
+    "start": "electron .",
+    "dist": "npm run build && npm run test:packaging && npm run verify:sidecar && electron-builder"
+  },
+  "dependencies": {
+    "@types/three": "^0.187.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.11",
+    "@testing-library/jest-dom": "^6.6.4",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^22.15.30",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.2.0",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.0.12",
+    "jsdom": "^26.1.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "vitest": "^5.0.5",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.alex.assistant",
+    "productName": "Alex",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist/alex-backend",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}

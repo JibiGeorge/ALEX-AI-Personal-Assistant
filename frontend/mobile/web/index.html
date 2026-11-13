@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#07090f">
+  <title>Alex Companion</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07090f;
+      --card: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.08);
+      --accent: #22d3ee;
+      --text: #dde3ed;
+      --muted: #64748b;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      background: rgba(7, 9, 15, 0.8);
+      backdrop-filter: blur(10px);
+    }
+    .logo {
+      font-family: monospace;
+      font-weight: bold;
+      color: var(--accent);
+      letter-spacing: 2px;
+    }
+    .status-badge {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 12px;
+      background: rgba(34, 211, 238, 0.15);
+      color: var(--accent);
+    }
+    #feed {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .bubble {
+      max-width: 85%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    .bubble.user {
+      align-self: flex-end;
+      background: rgba(34, 211, 238, 0.2);
+      border-bottom-right-radius: 4px;
+    }
+    .bubble.alex {
+      align-self: flex-start;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .footer {
+      padding: 16px;
+      background: rgba(7, 9, 15, 0.9);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .mic-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(34, 211, 238, 0.15);
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mic-btn.active {
+      background: #ef4444;
+      color: white;
+      transform: scale(1.08);
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+    }
+    .input-bar {
+      display: flex;
+      width: 100%;
+      gap: 8px;
+    }
+    .input-bar input {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: white;
+      outline: none;
+    }
+    .input-bar button {
+      background: var(--accent);
+      color: black;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      padding: 0 16px;
+      cursor: pointer;
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+    .modal-card {
+      background: #0f172a;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.2);
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f87171;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-action {
+      font-family: monospace;
+      font-size: 14px;
+      color: var(--accent);
+      background: rgba(34, 211, 238, 0.1);
+      padding: 6px 10px;
+      border-radius: 8px;
+      word-break: break-all;
+    }
+    .modal-params {
+      font-size: 12px;
+      color: #94a3b8;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 8px;
+      max-height: 120px;
+      overflow-y: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+    }
+    .modal-btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-deny {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .btn-approve {
+      background: #22c55e;
+      color: black;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">ALEX COMPANION</div>
+    <div id="status" class="status-badge">READY</div>
+  </header>
+
+  <div id="feed">
+    <div class="bubble alex">Connected to Alex AI Desktop. How can I help you?</div>
+  </div>
+
+  <div class="footer">
+    <button id="micBtn" class="mic-btn" aria-label="Toggle Microphone">🎤</button>
+    <div class="input-bar">
+      <input id="textInput" type="text" placeholder="Type a message or command..." />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <div id="approvalModal" class="modal-overlay" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-title">⚠️ Action Approval Required</div>
+      <div id="approvalActionName" class="modal-action">action_id</div>
+      <div id="approvalParams" class="modal-params">{}</div>
+      <div class="modal-actions">
+        <button id="approvalDenyBtn" class="modal-btn btn-deny">Deny</button>
+        <button id="approvalApproveBtn" class="modal-btn btn-approve">Authorize</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="companion.js"></script>
+</body>
+</html>
+

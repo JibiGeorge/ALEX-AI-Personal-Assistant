@@ -1,0 +1,10 @@
+
+ RUN  v5.0.5 /Users/jibigeorge/Downloads/untitled folder/ALEX-AI-main/frontend
+
+ ✓ src/electron-security.test.ts (8 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  21:21:54
+   Duration  511ms (environment 83%, setup 12%, transform 2%, tests 1%, worker 1%, import 1%)
+

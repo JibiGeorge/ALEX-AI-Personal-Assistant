@@ -1,0 +1,15 @@
+
+> alex-desktop@0.1.0 test:packaging
+> node --test ../scripts/verify-sidecar.test.mjs
+
+✔ requires a platform-matching Windows sidecar executable (3.483ms)
+✔ requires an executable Unix sidecar (1.48075ms)
+✔ rejects a missing sidecar bundle (0.398125ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 203.606042

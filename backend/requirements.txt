@@ -1,0 +1,42 @@
+# Core Web & API Framework
+fastapi>=0.115,<1
+uvicorn[standard]>=0.34,<1
+pydantic>=2.10,<3
+pydantic-settings>=2.7,<3
+keyring>=25,<26
+google-genai>=1.30,<2
+httpx>=0.28,<1
+psutil>=5.9,<8
+pyautogui>=0.9.54,<1
+pyperclip>=1.9,<2
+
+# Deep Document Parsing (TASK-P3-09 / CAT-20)
+pypdf>=4.0.0
+python-docx>=1.1.0
+openpyxl>=3.1.0
+python-pptx>=0.6.23
+
+# Speech Recognition & Audio DSP (TASK-P4-01 / CAT-08)
+faster-whisper>=1.0.0
+ctranslate2>=4.0.0
+numpy>=1.26.0
+
+# Speech Synthesis (TASK-P4-02 / CAT-09)
+piper-tts>=1.2.0
+
+# Local Wake-Word Engine (TASK-P4-03 / CAT-38)
+openwakeword>=0.6.0
+
+# Embedded Media Player (TASK-P4-06 / CAT-24)
+yt-dlp>=2024.0.0
+
+# Mobile Gateway & Secure Pairing (TASK-P6-01 / CAT-37)
+cryptography>=42.0.0
+qrcode[pil]>=7.4
+
+# Vision & Hardware Camera (TASK-GAP-07 / CAT-23)
+opencv-python>=4.8.0
+
+# Development, Testing & Packaging
+pytest>=8.3,<9
+pyinstaller>=6.11,<7
