@@ -4,6 +4,7 @@ import { HUDWorkspace } from "../workspace/HUDWorkspace";
 import { AlexResponseStream, type AlexResponseItem } from "./AlexResponseStream";
 import type { AppSettings, HudStyle } from "../../types/api";
 import type { WorkspaceActivity, WorkspaceActivityType } from "../../types/workspace";
+import type { VoiceState } from "../../types/voice";
 
 export interface HolographicAssistantProps {
   assistantName: string;
@@ -43,6 +44,7 @@ export interface HolographicAssistantProps {
   isPanelActive?: boolean;
   alexResponses?: AlexResponseItem[];
   onSelectSuggestion?: (suggestion: string) => void;
+  voiceState?: VoiceState;
 }
 
 export function HolographicAssistant({
@@ -75,6 +77,7 @@ export function HolographicAssistant({
   geminiModel: _geminiModel,
   alexResponses = [],
   onSelectSuggestion,
+  voiceState,
 }: HolographicAssistantProps) {
   // Determine dynamic assistant status (Section 4)
   let assistantStatusText = "STANDING BY";
@@ -320,8 +323,14 @@ export function HolographicAssistant({
           )}
 
           <span className="voice-pending" title="Voice connection status">
-            {voiceActive
+            {voiceState === "speaking"
+              ? "CLOUD VOICE SPEAKING"
+              : voiceState === "thinking"
+              ? "CLOUD VOICE THINKING"
+              : voiceActive || voiceState === "listening"
               ? "CLOUD VOICE LIVE"
+              : voiceState === "error"
+              ? "VOICE CHANNEL ALERT"
               : geminiStatus === "POLICY 1008"
               ? "GEMINI: POLICY 1008 · REST MODE AVAILABLE"
               : apiKeyConfigured

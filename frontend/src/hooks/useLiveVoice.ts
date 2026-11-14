@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { alexApi } from "../services/alexApi";
 import type { LiveVoiceEvent } from "../types/api";
+import { classifyVoiceError, type VoiceErrorInfo, type VoiceState } from "../types/voice";
 
 const INPUT_RATE = 16_000;
 const OUTPUT_RATE = 24_000;
@@ -144,6 +145,8 @@ export function useLiveVoice({
   const [active, setActive] = useState(false);
   const [starting, setStarting] = useState(false);
   const [assistantSpeaking, setAssistantSpeaking] = useState(false);
+  const [voiceState, setVoiceState] = useState<VoiceState>("idle");
+  const [voiceError, setVoiceError] = useState<VoiceErrorInfo | null>(null);
   const callbacks = useRef({ onTranscript, onError, onConnected, onModelFallback });
   const streamRef = useRef<MediaStream | null>(null);
   const contextRef = useRef<AudioContext | null>(null);
@@ -197,6 +200,7 @@ export function useLiveVoice({
     playbackSources.current.clear();
     playbackCursor.current = 0;
     setAssistantSpeaking(false);
+    setVoiceState((prev) => (prev === "speaking" ? "listening" : prev));
   }, []);
 
   const releaseAudio = useCallback(async () => {
@@ -225,6 +229,8 @@ export function useLiveVoice({
   const stop = useCallback(async () => {
     setActive(false);
     setStarting(false);
+    setAssistantSpeaking(false);
+    setVoiceState((prev) => (prev === "error" ? "error" : "idle"));
     suppressAudio.current = true;
     pendingTextTurn.current?.reject(new Error("The live voice session was closed."));
     pendingTextTurn.current = null;
@@ -247,7 +253,9 @@ export function useLiveVoice({
         const context = contextRef.current;
         if (!context || event.pcm.byteLength < 2 || event.pcm.byteLength % 2) return;
         const samples = new Float32Array(event.pcm.byteLength / 2);
-        const view = new DataView(event.pcm.buffer, event.pcm.byteOffset, event.pcm.byteLength);
+        const arrayBuffer = event.pcm instanceof ArrayBuffer ? event.pcm : (event.pcm as any).buffer;
+        const offset = event.pcm instanceof ArrayBuffer ? 0 : (event.pcm as any).byteOffset || 0;
+        const view = new DataView(arrayBuffer, offset, event.pcm.byteLength);
         for (let index = 0; index < samples.length; index += 1) {
           samples[index] = view.getInt16(index * 2, true) / 32768;
         }
@@ -267,6 +275,7 @@ export function useLiveVoice({
         playbackCursor.current = startAt + buffer.duration;
         playbackSources.current.add(player);
         setAssistantSpeaking(true);
+        setVoiceState("speaking");
 
         player.onended = () => {
           playbackSources.current.delete(player);
@@ -277,6 +286,7 @@ export function useLiveVoice({
           }
           if (playbackSources.current.size === 0) {
             setAssistantSpeaking(false);
+            setVoiceState("listening");
           }
         };
         player.start(startAt);
@@ -293,9 +303,14 @@ export function useLiveVoice({
           pending?.reject(new Error("The live voice response was interrupted."));
         }
         suppressAudio.current = false;
+        setVoiceState("listening");
       } else if (event.type === "interrupted") {
         suppressAudio.current = true;
+        setVoiceState("listening");
       } else if (event.type === "error") {
+        const errorInfo = classifyVoiceError(event.message);
+        setVoiceError(errorInfo);
+        setVoiceState("error");
         const pending = pendingTextTurn.current;
         pendingTextTurn.current = null;
         if (pending) pending.reject(new Error(event.message));
@@ -438,6 +453,8 @@ registerProcessor("alex-pcm-capture", PcmCaptureProcessor);`;
       processor.connect(context.destination);
       processorRef.current = processor;
       setActive(true);
+      setVoiceState("listening");
+      setVoiceError(null);
     } catch (error) {
       await releaseAudio();
       try {
@@ -446,6 +463,9 @@ registerProcessor("alex-pcm-capture", PcmCaptureProcessor);`;
         console.error("Could not close a failed voice connection", stopError);
       }
       const message = error instanceof Error ? error.message : "Could not start voice.";
+      const errorInfo = classifyVoiceError(message);
+      setVoiceError(errorInfo);
+      setVoiceState("error");
       callbacks.current.onError(message);
       throw error;
     } finally {
@@ -456,6 +476,7 @@ registerProcessor("alex-pcm-capture", PcmCaptureProcessor);`;
   const interrupt = useCallback(async () => {
     suppressAudio.current = true;
     clearPlayback();
+    setVoiceState("listening");
     try {
       await alexApi.interruptVoice();
     } catch (error) {
@@ -475,6 +496,7 @@ registerProcessor("alex-pcm-capture", PcmCaptureProcessor);`;
         throw new Error("Message must contain 1 to 4000 characters.");
       }
 
+      setVoiceState("thinking");
       let resolveTurn!: (turn: LiveTextTurn) => void;
       let rejectTurn!: (error: Error) => void;
       const response = new Promise<LiveTextTurn>((resolve, reject) => {
@@ -486,6 +508,7 @@ registerProcessor("alex-pcm-capture", PcmCaptureProcessor);`;
         await alexApi.sendVoiceText(cleanText);
       } catch (error) {
         pendingTextTurn.current = null;
+        setVoiceState("listening");
         throw error;
       }
       return response;
@@ -493,14 +516,24 @@ registerProcessor("alex-pcm-capture", PcmCaptureProcessor);`;
     [active],
   );
 
+  const reconnect = useCallback(async () => {
+    setVoiceError(null);
+    await stop();
+    await start();
+  }, [stop, start]);
+
   return {
     active,
     starting,
     start,
     stop,
+    reconnect,
     interrupt,
     sendText,
     assistantSpeaking,
+    voiceState,
+    voiceError,
+    setVoiceError,
     analyserNode: playbackAnalyserRef.current,
   };
 }

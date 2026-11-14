@@ -1,3 +1,5 @@
+import type { VoiceState } from "../../types/voice";
+
 export interface ApplicationHeaderProps {
   assistantName: string;
   setupMenuOpen: boolean;
@@ -13,6 +15,7 @@ export interface ApplicationHeaderProps {
   onToggleActivity?: () => void;
   geminiStatus?: string;
   voiceActive?: boolean;
+  voiceState?: VoiceState;
   systemMonitorOpen?: boolean;
   onToggleSystemMonitor?: () => void;
   latestActivity?: {
@@ -37,10 +40,23 @@ export function ApplicationHeader({
   onToggleActivity,
   geminiStatus,
   voiceActive = false,
+  voiceState,
   systemMonitorOpen = false,
   onToggleSystemMonitor,
   latestActivity,
 }: ApplicationHeaderProps) {
+  let voiceStatusText = "READY";
+  if (voiceState === "listening" || voiceActive) {
+    voiceStatusText = "LIVE";
+  } else if (voiceState === "thinking") {
+    voiceStatusText = "PROCESSING";
+  } else if (voiceState === "speaking") {
+    voiceStatusText = "SPEAKING";
+  } else if (voiceState === "error") {
+    voiceStatusText = "ALERT";
+  } else if (geminiStatus && geminiStatus !== "ONLINE") {
+    voiceStatusText = geminiStatus;
+  }
   return (
     <header
       className={`hud-header reveal-component reveal-header ${
@@ -118,7 +134,7 @@ export function ApplicationHeader({
             className="hud-title-sub"
             title="Architecture: Local application runtime connected to Cloud Voice AI"
           >
-            <i className="title-pulse-dot" aria-hidden="true" /> LOCAL APP · CLOUD VOICE {voiceActive ? "LIVE" : (geminiStatus && geminiStatus !== "ONLINE" ? `(${geminiStatus})` : "READY")}
+            <i className={`title-pulse-dot state-${voiceState || (voiceActive ? "listening" : "idle")}`} aria-hidden="true" /> LOCAL APP · CLOUD VOICE {voiceStatusText}
           </span>
         </div>
         {latestActivity && (

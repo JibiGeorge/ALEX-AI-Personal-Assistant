@@ -77,6 +77,21 @@ describe("resampleToPcm16", () => {
         resume = vi.fn().mockResolvedValue(undefined);
         close = vi.fn().mockResolvedValue(undefined);
         createMediaStreamSource = () => ({ connect: vi.fn(), disconnect: vi.fn() });
+        createBuffer = (_channels: number, length: number, rate: number) => ({
+          duration: length / rate,
+          copyToChannel: vi.fn(),
+        });
+        createBufferSource = () => ({
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+          start: vi.fn(),
+          onended: null as (() => void) | null,
+        });
+        createAnalyser = () => ({
+          fftSize: 2048,
+          connect: vi.fn(),
+          disconnect: vi.fn(),
+        });
       },
     );
     vi.stubGlobal(
@@ -214,6 +229,107 @@ describe("resampleToPcm16", () => {
 
     expect(mockGetUserMedia).toHaveBeenCalledTimes(2);
     expect(result.current.active).toBe(true);
+    unmount();
+  });
+
+  it("follows the unified voice state machine: idle -> listening -> thinking -> speaking -> error", async () => {
+    const onTranscript = vi.fn();
+    const onError = vi.fn();
+    const { result, unmount } = renderHook(() => useLiveVoice({ onTranscript, onError }));
+
+    // Initial state: idle
+    expect(result.current.voiceState).toBe("idle");
+    expect(result.current.voiceError).toBeNull();
+
+    // Start listening
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.voiceState).toBe("listening");
+
+    // Send text turn -> transitions to thinking
+    await act(async () => {
+      void result.current.sendText("Explain quantum computing");
+    });
+    expect(result.current.voiceState).toBe("thinking");
+
+    // Complete turn
+    await act(async () => {
+      voiceListener?.({
+        type: "turn_complete",
+        input_text: "Explain quantum computing",
+        output_text: "Quantum computing uses qubits...",
+        interrupted: false,
+      });
+    });
+    expect(result.current.voiceState).toBe("listening");
+
+    // Audio arrival -> transitions to speaking
+    const pcmBytes = new Uint8Array(4096);
+    await act(async () => {
+      voiceListener?.({
+        type: "audio",
+        pcm: pcmBytes,
+      });
+    });
+    expect(result.current.voiceState).toBe("speaking");
+
+    // Error event -> transitions to error with classified error
+    await act(async () => {
+      voiceListener?.({
+        type: "error",
+        message: "Resource has been exhausted (e.g. check quota)",
+      });
+    });
+    expect(result.current.voiceState).toBe("error");
+    expect(result.current.voiceError).not.toBeNull();
+    expect(result.current.voiceError?.type).toBe("quota_exceeded");
+    expect(result.current.voiceError?.title).toBe("Gemini Quota Exceeded");
+
+    unmount();
+  });
+
+  it("classifies microphone permission denied error and sets error info", async () => {
+    const onError = vi.fn();
+    const { result, unmount } = renderHook(() => useLiveVoice({ onTranscript: vi.fn(), onError }));
+
+    await act(async () => {
+      voiceListener?.({
+        type: "error",
+        message: "Microphone permission denied: NotAllowedError",
+      });
+    });
+
+    expect(result.current.voiceState).toBe("error");
+    expect(result.current.voiceError?.type).toBe("permission_denied");
+    expect(result.current.voiceError?.title).toBe("Microphone Access Blocked");
+    unmount();
+  });
+
+  it("handles reconnect by resetting voice state and restarting session", async () => {
+    const { result, unmount } = renderHook(() => useLiveVoice({ onTranscript: vi.fn(), onError: vi.fn() }));
+
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.voiceState).toBe("listening");
+
+    // Trigger an error
+    await act(async () => {
+      voiceListener?.({
+        type: "error",
+        message: "WebSocket connection dropped unexpectedly",
+      });
+    });
+    expect(result.current.voiceState).toBe("error");
+
+    // Call reconnect
+    await act(async () => {
+      await result.current.reconnect();
+    });
+    expect(result.current.voiceState).toBe("listening");
+    expect(result.current.voiceError).toBeNull();
+
     unmount();
   });
 });

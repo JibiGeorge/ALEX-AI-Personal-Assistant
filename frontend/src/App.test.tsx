@@ -12,8 +12,12 @@ const voice = {
   starting: false,
   assistantSpeaking: false,
   analyserNode: null,
+  voiceState: "idle" as const,
+  voiceError: null,
+  setVoiceError: vi.fn(),
   start: vi.fn().mockResolvedValue(undefined),
   stop: vi.fn().mockResolvedValue(undefined),
+  reconnect: vi.fn().mockResolvedValue(undefined),
   interrupt: vi.fn().mockResolvedValue(undefined),
   sendText: vi.fn().mockResolvedValue({
     input_text: "Hello Alex",

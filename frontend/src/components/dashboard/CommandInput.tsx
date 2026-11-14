@@ -234,13 +234,13 @@ export function CommandInput({
             </button>
           </form>
 
-          {/* Action Controls: 3. Mic Start/Active, 4. Interrupt, 5. Stop Mic, 6. Chat History */}
+          {/* Action Controls: 1. Unified Mic Toggle, 2. Conditional Interrupt (only while speaking), 3. Chat History */}
           <div className="hud-command-actions">
-            {/* 3. Microphone Control */}
+            {/* Unified Microphone Toggle Button */}
             <button
               type="button"
-              aria-label={voiceActive ? "Microphone active" : "Start microphone"}
-              className={`hud-cmd-btn hud-btn-mic ${
+              aria-label={voiceActive ? "Stop microphone" : "Start microphone"}
+              className={`hud-cmd-btn hud-btn-mic state-${voiceState.toLowerCase()} ${
                 voiceActive ? "hud-mic-active" : "hud-btn-standby"
               }`}
               disabled={!apiKeyConfigured || voiceStarting}
@@ -253,53 +253,43 @@ export function CommandInput({
                   : "Configure a Gemini API key in Settings"
               }
             >
-              <span className="hud-btn-icon">🎙</span>
+              <span className="hud-btn-icon" aria-hidden="true">
+                {voiceStarting && "◌"}
+                {!voiceStarting && (voiceState === "RESPONDING" || isSpeaking) && "🔊"}
+                {!voiceStarting && voiceState === "THINKING" && "◌"}
+                {!voiceStarting && voiceState === "ERROR" && "⚠"}
+                {!voiceStarting && voiceState !== "RESPONDING" && !isSpeaking && voiceState !== "THINKING" && voiceState !== "ERROR" && "🎙"}
+              </span>
               <span className="hud-btn-label">
                 {voiceStarting
                   ? "CONNECTING…"
+                  : voiceState === "RESPONDING" || isSpeaking
+                  ? "SPEAKING"
+                  : voiceState === "THINKING" || chatBusy
+                  ? "THINKING…"
+                  : voiceState === "ERROR"
+                  ? "RETRY MIC"
                   : voiceActive
                   ? "MIC LIVE"
                   : "START MIC"}
               </span>
             </button>
 
-            {/* 4. Interrupt Assistant Audio */}
-            <button
-              type="button"
-              aria-label="Interrupt voice response"
-              className={`hud-cmd-btn hud-btn-interrupt ${
-                voiceActive || isSpeaking ? "hud-action-live" : "hud-action-disabled"
-              }`}
-              disabled={!voiceActive && !isSpeaking}
-              onClick={onVoiceInterrupt}
-              title={
-                voiceActive || isSpeaking
-                  ? "Stop the current response and continue listening"
-                  : "Voice session offline"
-              }
-            >
-              <span className="hud-btn-icon">✋</span>
-              <span className="hud-btn-label">INTERRUPT</span>
-            </button>
+            {/* Interrupt Assistant Audio — shown ONLY while speaking */}
+            {(isSpeaking || voiceState === "RESPONDING") && (
+              <button
+                type="button"
+                aria-label="Interrupt voice response"
+                className="hud-cmd-btn hud-btn-interrupt hud-action-live"
+                onClick={onVoiceInterrupt}
+                title="Stop the current response and continue listening"
+              >
+                <span className="hud-btn-icon" aria-hidden="true">✋</span>
+                <span className="hud-btn-label">INTERRUPT</span>
+              </button>
+            )}
 
-            {/* 5. Stop Microphone */}
-            <button
-              type="button"
-              aria-label="Stop microphone"
-              className={`hud-cmd-btn hud-btn-stop ${
-                voiceActive ? "hud-action-stop" : "hud-action-disabled"
-              }`}
-              disabled={!voiceActive}
-              onClick={handleStopMic}
-              title={
-                voiceActive ? "Stop microphone voice session" : "Microphone is offline"
-              }
-            >
-              <span className="hud-btn-icon">⏹</span>
-              <span className="hud-btn-label">STOP MIC</span>
-            </button>
-
-            {/* 6. Open Chat History */}
+            {/* Chat History */}
             <button
               type="button"
               aria-label="Open chat history"
@@ -307,7 +297,7 @@ export function CommandInput({
               onClick={onOpenChat}
               title="Open full conversation history dialog"
             >
-              <span className="hud-btn-icon">◈</span>
+              <span className="hud-btn-icon" aria-hidden="true">◈</span>
               <span className="hud-btn-label">CHAT HISTORY</span>
             </button>
           </div>

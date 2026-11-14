@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 
 import { useLiveVoice } from "./hooks/useLiveVoice";
 import { Notice } from "./components/Notice";
+import { VoiceErrorBanner } from "./components/VoiceErrorBanner";
 import { FloatingClipboardPanel } from "./components/FloatingClipboardPanel";
 import { StartupBriefing } from "./components/StartupBriefing";
 import { HolographicStartup, type DiagnosticReport, type StartupStage } from "./components/startup/HolographicStartup";
@@ -1817,6 +1818,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
           onToggleActivity={() => setActivityOpen((prev) => !prev)}
           geminiStatus={geminiStatus}
           voiceActive={voice.active}
+          voiceState={voice.voiceState}
           systemMonitorOpen={systemMonitorOpen}
           onToggleSystemMonitor={() => setSystemMonitorOpen((prev) => !prev)}
           latestActivity={activity.length > 0 ? activity[activity.length - 1] : null}
@@ -2002,6 +2004,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
           geminiStatus={geminiStatus}
           geminiModel={geminiModel}
           alexResponses={alexResponses}
+          voiceState={voice.voiceState}
           onSelectSuggestion={(suggestion) => {
             if (suggestion === "Find jobs") {
               openPanel("job_hunting");
@@ -2052,6 +2055,14 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
         <button onClick={() => void toggleFullscreen()} type="button">[F11] FULLSCREEN</button>
       </footer>
 
+      {voice.voiceError && (
+        <VoiceErrorBanner
+          error={voice.voiceError}
+          onReconnect={() => void voice.reconnect()}
+          onDismiss={() => voice.setVoiceError(null)}
+        />
+      )}
+
       {notice && (
         <Notice kind={notice.kind} onDismiss={() => setNotice(null)}>
           {notice.text}
@@ -2082,7 +2093,27 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
             </header>
             <div className="hud-modal-content">
               {activePanel === "settings" ? (
-                <SettingsPage settings={settings} onSave={saveSettings} onSaveKey={saveApiKey} />
+                <SettingsPage
+                  settings={settings}
+                  onSave={saveSettings}
+                  onSaveKey={saveApiKey}
+                  selectedModel={geminiModel || localStorage.getItem("alex_selected_model") || "gemini-2.5-flash-native-audio-preview-12-2025"}
+                  onSelectModel={(model) => {
+                    localStorage.setItem("alex_selected_model", model);
+                    setGeminiModel(model);
+                    setNotice({ kind: "success", text: `Active model preference set to ${model}` });
+                  }}
+                  wakeWordStatus={wakeWordStatus}
+                  onToggleWakeWord={handleToggleWakeWord}
+                  onPurgeData={() => {
+                    localStorage.removeItem("alex_chat_history");
+                    localStorage.removeItem("alex_selected_model");
+                    setChatMessages([]);
+                    setActivity([]);
+                    setConversationId(null);
+                    setNotice({ kind: "success", text: "Local conversation cache and ephemeral storage purged." });
+                  }}
+                />
               ) : activePanel === "audio" ? (
                 <AudioDevicesPage
                   inputDeviceId={settings?.settings.audio_input_device_id ?? ""}
