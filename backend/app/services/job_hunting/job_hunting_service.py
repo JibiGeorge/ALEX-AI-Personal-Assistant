@@ -594,3 +594,12 @@ class JobHuntingService:
             if not profile.full_name or profile.full_name == "Candidate":
                 profile.full_name = slug
         return self.update_profile(profile)
+
+    def export_all_data(self) -> dict[str, Any]:
+        """Exports all career radar data from storage."""
+        return self.storage.export_all_data()
+
+    def purge_all_data(self) -> dict[str, int]:
+        """Purges all user career records from local SQLite."""
+        return self.storage.purge_all_data()
+

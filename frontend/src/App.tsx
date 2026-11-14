@@ -2021,6 +2021,15 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
         />
       </main>
 
+      {/* Screen-reader live announcement for voice state changes (WCAG AA requirement) */}
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {voice.voiceState === "listening" && "ALEX is listening to your microphone"}
+        {voice.voiceState === "thinking" && "ALEX is processing your request"}
+        {voice.voiceState === "speaking" && "ALEX is speaking"}
+        {voice.voiceState === "error" && "ALEX encountered a voice connection issue"}
+        {voice.voiceState === "idle" && "ALEX voice channel is standing by"}
+      </div>
+
       <CommandInput
         command={command}
         onCommandChange={setCommand}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type {
   ApplicationApproval,
+  CandidateProfile,
   CompatibilityScore,
   JobApplication,
   JobListing,
@@ -13,6 +14,8 @@ interface DashboardViewProps {
   applications: JobApplication[];
   approvals: ApplicationApproval[];
   schedule: ScheduleDiscoveryConfig | null;
+  profile?: CandidateProfile | null;
+  onOpenOnboarding?: () => void;
   onSelectJob: (jobId: string) => void;
   onNavigateTab: (tab: string) => void;
   onQuickIngestUrl: (url: string) => Promise<void>;
@@ -26,6 +29,8 @@ export function DashboardView({
   applications,
   approvals,
   schedule,
+  profile,
+  onOpenOnboarding,
   onSelectJob,
   onNavigateTab,
   onQuickIngestUrl,
@@ -72,6 +77,47 @@ export function DashboardView({
     ).length;
     return count > 0 ? count : jobs.length;
   }, [jobs]);
+
+  // Profile Completeness calculation
+  const completeness = useMemo(() => {
+    let score = 0;
+    const missing: string[] = [];
+
+    if (profile?.raw_resume_text || (profile?.work_history && profile.work_history.length > 0)) {
+      score += 30;
+    } else {
+      missing.push("Base Resume");
+    }
+
+    if (profile?.full_name && profile?.email && (profile?.location || profile?.current_location)) {
+      score += 20;
+    } else {
+      missing.push("Contact Details");
+    }
+
+    if (profile?.preferences?.target_roles && profile.preferences.target_roles.length > 0) {
+      score += 20;
+    } else {
+      missing.push("Target Roles");
+    }
+
+    if (
+      (profile?.preferences?.modalities && profile.preferences.modalities.length > 0) ||
+      (profile?.preferences?.target_locations && profile.preferences.target_locations.length > 0)
+    ) {
+      score += 15;
+    } else {
+      missing.push("Locations & Modality");
+    }
+
+    if (profile?.preferences?.minimum_salary || (profile as any)?.work_authorization) {
+      score += 15;
+    } else {
+      missing.push("Salary & Work Auth");
+    }
+
+    return { percentage: Math.min(100, score), missing };
+  }, [profile]);
 
   // Duplicate detection across sources
   const duplicateSet = useMemo(() => {
@@ -171,6 +217,66 @@ export function DashboardView({
             ? `SCHEDULER ACTIVE (EVERY ${schedule.interval_hours}H)`
             : "SCHEDULER STANDBY"}
         </div>
+      </div>
+
+      {/* Candidate Radar Profile Completeness Banner */}
+      <div
+        className="jh-card"
+        style={{
+          marginBottom: "1.2rem",
+          padding: "14px 18px",
+          background: "linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.6) 100%)",
+          border: "1px solid var(--hud-border-cyan, #0ea5e9)",
+          borderRadius: "10px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "14px",
+        }}
+      >
+        <div style={{ flex: "1 1 300px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+            <span style={{ fontSize: "11px", fontFamily: "var(--hud-font-mono, monospace)", color: "var(--hud-accent-cyan, #38bdf8)", fontWeight: 700, letterSpacing: "1px" }}>
+              CANDIDATE RADAR PROFILE COMPLETENESS
+            </span>
+            <span style={{ fontSize: "13px", fontFamily: "var(--hud-font-mono, monospace)", color: completeness.percentage >= 80 ? "var(--hud-success, #20d6a0)" : "var(--hud-accent-cyan, #38bdf8)", fontWeight: 700 }}>
+              {completeness.percentage}%
+            </span>
+          </div>
+          <div style={{ width: "100%", height: "6px", background: "rgba(15, 23, 42, 0.8)", borderRadius: "3px", overflow: "hidden", marginBottom: "6px" }}>
+            <div
+              style={{
+                width: `${completeness.percentage}%`,
+                height: "100%",
+                background: completeness.percentage >= 80 ? "var(--hud-success, #20d6a0)" : "var(--hud-accent-cyan, #0ea5e9)",
+                transition: "width 0.4s ease",
+              }}
+            />
+          </div>
+          <div style={{ fontSize: "11px", color: "var(--hud-text-secondary, #94a3b8)" }}>
+            {completeness.percentage === 100
+              ? "✓ Profile fully configured — 10-factor matching engine running with maximum accuracy."
+              : `Missing: ${completeness.missing.join(", ")}. Complete profile to maximize scoring precision.`}
+          </div>
+        </div>
+
+        {onOpenOnboarding && (
+          <button
+            type="button"
+            onClick={onOpenOnboarding}
+            className="jh-btn jh-btn-primary"
+            style={{
+              padding: "7px 16px",
+              fontSize: "11.5px",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+            aria-label="Open Onboarding Setup Wizard"
+          >
+            {completeness.percentage === 100 ? "⚙️ Edit Profile & Targets" : "🚀 Launch Setup Wizard →"}
+          </button>
+        )}
       </div>
 
       {/* 5 Replaced Stat Cards */}

@@ -44,6 +44,8 @@ vi.mock("../../services/jobHuntingApi", () => ({
     uploadMasterResume: vi.fn(),
     getDiscoverySchedule: vi.fn(),
     updateDiscoverySchedule: vi.fn(),
+    exportCareerData: vi.fn().mockResolvedValue({}),
+    purgeCareerData: vi.fn().mockResolvedValue({}),
   },
 }));
 

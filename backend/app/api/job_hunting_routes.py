@@ -585,3 +585,18 @@ def decide_approval_by_id(
 def get_application_timeline(application_id: str, request: Request):
     service = get_job_hunting_service(request)
     return service.get_application_timeline(application_id)
+
+
+@router.get("/data/export")
+def export_career_data(request: Request):
+    """Exports all local career data in machine-readable JSON format."""
+    service = get_job_hunting_service(request)
+    return service.export_all_data()
+
+
+@router.post("/data/purge")
+def purge_career_data(request: Request):
+    """Purges all user career records from local SQLite storage."""
+    service = get_job_hunting_service(request)
+    return service.purge_all_data()
+

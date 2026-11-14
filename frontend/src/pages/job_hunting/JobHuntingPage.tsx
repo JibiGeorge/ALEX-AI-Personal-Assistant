@@ -27,6 +27,8 @@ import { PendingApprovalsView } from "./PendingApprovalsView";
 import { RecommendedView } from "./RecommendedView";
 import { ResumeStudioView } from "./ResumeStudioView";
 import { SettingsView } from "./SettingsView";
+import { PrivacyView } from "./PrivacyView";
+import { JobOnboardingWizard } from "../../components/onboarding/JobOnboardingWizard";
 
 export type JobHuntingTab =
   | "dashboard"
@@ -41,7 +43,8 @@ export type JobHuntingTab =
   | "approvals"
   | "applications"
   | "interview"
-  | "settings";
+  | "settings"
+  | "privacy";
 
 interface JobHuntingPageProps {
   onError?: (msg: string) => void;
@@ -63,6 +66,7 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
   const [activeApproval, setActiveApproval] = useState<ApplicationApproval | null>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(false);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; text: string } | null>(null);
 
   function showNotice(kind: "success" | "error", text: string) {
@@ -387,8 +391,8 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
     setProfile(updated);
   }
 
-  async function handleUploadResume(rawText: string) {
-    const updated = await jobHuntingApi.uploadMasterResume({ raw_text: rawText });
+  async function handleUploadResume(rawText: string, fileName?: string) {
+    const updated = await jobHuntingApi.uploadMasterResume({ raw_text: rawText, file_name: fileName });
     setProfile(updated);
   }
 
@@ -558,6 +562,14 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
           >
             <span className="jh-tab-icon">⚙️</span> Settings
           </button>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "privacy" ? "active" : ""}`}
+            onClick={() => navigateTab("privacy")}
+            aria-label="Privacy and Local-First Governance"
+          >
+            <span className="jh-tab-icon">🛡️</span> Privacy
+          </button>
         </div>
       </nav>
 
@@ -686,6 +698,8 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
                 applications={applications}
                 approvals={approvals}
                 schedule={schedule}
+                profile={profile}
+                onOpenOnboarding={() => setIsOnboardingOpen(true)}
                 onSelectJob={(id) => setSelectedJobId(id)}
                 onNavigateTab={navigateTab}
                 onQuickIngestUrl={handleQuickIngestUrl}
@@ -832,9 +846,34 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
                 onSuccess={(msg) => showNotice("success", msg)}
               />
             )}
+
+            {activeTab === "privacy" && (
+              <PrivacyView
+                onNotifySuccess={(msg) => showNotice("success", msg)}
+                onNotifyError={(err) => showNotice("error", err)}
+                onDataPurged={async () => {
+                  setJobs([]);
+                  setApplications([]);
+                  setApprovals([]);
+                  setScores({});
+                  const prof = await jobHuntingApi.getCandidateProfile().catch(() => null);
+                  setProfile(prof);
+                  navigateTab("dashboard");
+                }}
+              />
+            )}
           </>
         )}
       </div>
+
+      {/* First-Run Career Onboarding Wizard Modal */}
+      <JobOnboardingWizard
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        profile={profile}
+        onSaveProfile={handleUpdateProfile}
+        onUploadResume={handleUploadResume}
+      />
 
       {/* Explicit Approval Dialog Modal */}
       {activeApproval && (

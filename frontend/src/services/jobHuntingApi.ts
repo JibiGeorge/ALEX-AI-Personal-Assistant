@@ -280,5 +280,14 @@ export const jobHuntingApi = {
 
   ingestLinkedInProfile: (url: string): Promise<CandidateProfile> =>
     request<CandidateProfile>("POST", "/api/job-hunting/profile/linkedin", { url }),
+
+  // -------------------------------------------------------------------------
+  // Data Governance & Privacy
+  // -------------------------------------------------------------------------
+  exportCareerData: (): Promise<Record<string, unknown>> =>
+    request<Record<string, unknown>>("GET", "/api/job-hunting/data/export"),
+
+  purgeCareerData: (): Promise<Record<string, number>> =>
+    request<Record<string, number>>("POST", "/api/job-hunting/data/purge"),
 };
 

@@ -665,3 +665,20 @@ def test_api_linkedin_data_export(client: TestClient):
     assert data[0]["company_name"] == "GitHub"
     assert data[0]["title"] == "Platform Engineer"
 
+
+def test_api_export_and_purge_career_data(client: TestClient):
+    # 1. Export data endpoint
+    res_exp = client.get("/api/job-hunting/data/export", headers=auth_headers())
+    assert res_exp.status_code == 200
+    export_payload = res_exp.json()
+    assert "version" in export_payload
+    assert "exported_at" in export_payload
+    assert "jobs" in export_payload
+
+    # 2. Purge data endpoint
+    res_purge = client.post("/api/job-hunting/data/purge", headers=auth_headers())
+    assert res_purge.status_code == 200
+    purge_payload = res_purge.json()
+    assert "job_listings" in purge_payload
+
+

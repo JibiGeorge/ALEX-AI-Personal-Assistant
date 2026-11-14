@@ -10,6 +10,7 @@ import logging
 import os
 import sqlite3
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -811,3 +812,67 @@ class JobHuntingStorage:
                     )
                 )
             return events
+
+    def export_all_data(self) -> dict[str, Any]:
+        """Exports all local career radar data for backup and portability."""
+        profile = self.get_candidate_profile()
+        jobs = self.list_jobs(limit=1000)
+        apps = self.list_applications()
+        runs = self.list_discovery_runs(limit=100)
+        approvals = self.list_pending_approvals(limit=100)
+
+        with self._lock, self._get_connection() as conn:
+            score_rows = conn.execute("SELECT data_json FROM compatibility_scores").fetchall()
+            scores = [json.loads(r["data_json"]) for r in score_rows]
+
+            doc_rows = conn.execute(
+                "SELECT id, job_id, candidate_id, version_number, created_at FROM tailored_documents"
+            ).fetchall()
+            docs = [dict(r) for r in doc_rows]
+
+        return {
+            "version": "1.0",
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "candidate_profile": profile.model_dump() if profile else None,
+            "jobs_count": len(jobs),
+            "jobs": [j.model_dump() for j in jobs],
+            "applications_count": len(apps),
+            "applications": [a.model_dump() for a in apps],
+            "scores_count": len(scores),
+            "scores": scores,
+            "tailored_documents_count": len(docs),
+            "tailored_documents": docs,
+            "discovery_runs_count": len(runs),
+            "discovery_runs": [r.model_dump() for r in runs],
+            "pending_approvals_count": len(approvals),
+            "pending_approvals": [ap.model_dump() for ap in approvals],
+        }
+
+    def purge_all_data(self) -> dict[str, int]:
+        """Purges all user career records from local SQLite while preserving schema."""
+        counts: dict[str, int] = {}
+        tables = [
+            "job_listings",
+            "discovery_runs",
+            "compatibility_scores",
+            "tailored_documents",
+            "applications",
+            "application_approvals",
+            "application_timeline",
+        ]
+        with self._lock, self._get_connection() as conn:
+            for tbl in tables:
+                deleted = conn.execute(f"DELETE FROM {tbl}").rowcount
+                counts[tbl] = max(0, deleted)
+            conn.commit()
+
+        # Reset profile preferences
+        profile = self.get_candidate_profile()
+        if profile:
+            profile.raw_resume_text = None
+            profile.master_resume_path = None
+            profile.is_verified = False
+            self.save_candidate_profile(profile)
+
+        return counts
+
