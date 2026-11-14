@@ -4,8 +4,10 @@ import type {
   ApplicationStatus,
   CandidatePreferences,
   CandidateProfile,
+  CareerRecommendations,
   CompatibilityScore,
   JobApplication,
+  JobComparisonResponse,
   JobListResponse,
   JobListing,
   ScheduleDiscoveryConfig,
@@ -248,5 +250,17 @@ export const jobHuntingApi = {
       enabled,
       interval_hours: intervalHours,
     }),
+
+  // -------------------------------------------------------------------------
+  // Comparison & Career Recommendations
+  // -------------------------------------------------------------------------
+  compareJobs: (jobIds: string[]): Promise<JobComparisonResponse> =>
+    request<JobComparisonResponse>("POST", "/api/job-hunting/compare", { job_ids: jobIds }),
+
+  getCareerRecommendations: (): Promise<CareerRecommendations> =>
+    request<CareerRecommendations>("GET", "/api/job-hunting/career-recommendations"),
+
+  ingestLinkedInProfile: (url: string): Promise<CandidateProfile> =>
+    request<CandidateProfile>("POST", "/api/job-hunting/profile/linkedin", { url }),
 };
 

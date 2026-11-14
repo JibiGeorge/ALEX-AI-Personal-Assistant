@@ -7,20 +7,35 @@ export type JobSource =
   | "remoteok"
   | "web_search"
   | "direct_url"
-  | "authorized_api";
+  | "authorized_api"
+  | "indeed"
+  | "naukri"
+  | "foundit"
+  | "glassdoor"
+  | "wellfound"
+  | "instahyre";
 
 export type WorkModality = "remote" | "hybrid" | "onsite";
 
 export type ApplicationStatus =
   | "discovered"
+  | "saved"
+  | "interested"
   | "analyzed"
+  | "bookmarked"
   | "tailored"
   | "ready_to_apply"
+  | "ready_for_review"
   | "applied"
+  | "assessment"
+  | "interview_scheduled"
+  | "interview_completed"
   | "interviewing"
   | "offered"
+  | "offer_received"
   | "rejected"
-  | "withdrawn";
+  | "withdrawn"
+  | "archived";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -29,6 +44,38 @@ export interface SkillItem {
   category: string;
   proficiency: string;
   years_experience: number;
+}
+
+export interface EducationItem {
+  institution: string;
+  degree: string;
+  field_of_study?: string | null;
+  graduation_year?: number | null;
+  location?: string | null;
+}
+
+export interface CertificationItem {
+  name: string;
+  issuing_organization?: string | null;
+  issue_year?: number | null;
+  credential_url?: string | null;
+}
+
+export interface ProjectItem {
+  title: string;
+  description: string;
+  tech_stack: string[];
+  project_url?: string | null;
+}
+
+export interface CareerRecommendations {
+  strengths: string[];
+  weaknesses: string[];
+  missing_keywords: string[];
+  skills_to_improve: string[];
+  recommended_certifications: string[];
+  suggested_job_titles: string[];
+  recommended_career_paths: string[];
 }
 
 export interface WorkExperienceItem {
@@ -53,6 +100,7 @@ export interface CandidatePreferences {
   minimum_salary?: number | null;
   auto_discovery_enabled: boolean;
   discovery_interval_hours: number;
+  factor_weights?: Record<string, number> | null;
 }
 
 export interface CandidateProfile {
@@ -73,6 +121,19 @@ export interface CandidateProfile {
   databases: string[];
   skills: SkillItem[];
   work_history: WorkExperienceItem[];
+  education?: EducationItem[];
+  certifications?: string[];
+  projects?: ProjectItem[];
+  tools_and_platforms?: string[];
+  non_technical_skills?: string[];
+  industry_experience?: string[];
+  management_experience?: string | null;
+  expected_salary?: string | null;
+  notice_period?: string | null;
+  current_location?: string | null;
+  preferred_locations?: string[];
+  missing_information?: string[];
+  career_recommendations?: CareerRecommendations | null;
   preferences: CandidatePreferences;
   master_resume_path?: string | null;
   raw_resume_text?: string | null;
@@ -91,6 +152,16 @@ export interface JobListing {
   title: string;
   location: string;
   modality: WorkModality;
+  country?: string | null;
+  city?: string | null;
+  state?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  workplace_type?: string;
+  employment_type?: string;
+  logo_url?: string | null;
+  application_deadline?: string | null;
+  recruiter_info?: string | null;
   salary_min?: number | null;
   salary_max?: number | null;
   salary_currency?: string;
@@ -120,22 +191,58 @@ export interface CompatibilityScore {
   candidate_id: string;
   match_percentage: number;
   overall_score: number;
+  match_tier?: "excellent" | "good" | "potential" | "low";
   technical_skills_score: number;
+  work_experience_score?: number;
   experience_score: number;
   responsibilities_score: number;
+  education_score?: number;
+  industry_score?: number;
   tech_stack_score: number;
   location_score: number;
   seniority_score: number;
+  factor_weights?: Record<string, number>;
   skills_matched: string[];
   skills_missing: string[];
+  matching_skills?: string[];
+  missing_skills?: string[];
   mandatory_requirements_not_met: string[];
   experience_gaps: string[];
   strengths: string[];
   weaknesses: string[];
+  why_matched?: string;
+  why_not_matched?: string;
   ai_recommendation: string;
   recommended_action: string;
   match_summary: string;
   calculated_at: string;
+}
+
+export interface JobComparisonItem {
+  job_id: string;
+  title: string;
+  company_name: string;
+  location: string;
+  modality: string;
+  salary: string;
+  responsibilities: string[];
+  required_skills: string[];
+  matching_skills: string[];
+  missing_skills: string[];
+  experience_required: string;
+  match_percentage: number;
+  match_tier: string;
+  company_info: string;
+  growth_potential: string;
+}
+
+export interface JobComparisonResponse {
+  compared_jobs: JobComparisonItem[];
+  best_fit_job_id: string;
+  best_fit_job_title: string;
+  best_fit_company: string;
+  ai_recommendation_reason: string;
+  comparison_summary: string;
 }
 
 export interface TailoredDocument {

@@ -3636,7 +3636,21 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
    MODAL WINDOWS & SETUP DIALOG
    ========================================================================== */
 
-.hud-modal-backdrop,
+.hud-modal-backdrop {
+  position: absolute;
+  z-index: 100;
+  inset: 56px 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 14px 225px 18px 20px; /* Reserves bottom-right quadrant for the docked avatar, same as YouTube workspace! */
+  background: rgba(2, 11, 18, 0.45); /* Holographic ambient tint on the HUD, NOT a full-screen blackout */
+  backdrop-filter: none; /* Keep the HUD laser scanlines, starfield telemetry, and avatar fully visible */
+  animation: backdrop-in 0.22s ease-out both;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
 .setup-backdrop {
   position: absolute;
   z-index: 1000;
@@ -3651,24 +3665,32 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 
 .hud-modal {
   display: flex;
-  width: min(780px, 96%);
-  max-height: 100%;
+  width: 100%;
+  max-width: 1040px;
+  max-height: calc(100% - 10px);
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--hud-border);
-  border-radius: 8px;
-  background: var(--hud-panel);
-  box-shadow: 0 0 50px rgba(0, 217, 255, 0.12), 0 25px 75px rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(0, 229, 255, 0.38);
+  border-radius: 14px;
+  background: rgba(2, 11, 18, 0.94);
+  box-shadow:
+    0 0 45px rgba(0, 217, 255, 0.16),
+    inset 0 0 30px rgba(0, 229, 255, 0.05),
+    inset 0 0 60px rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   animation: modal-arrive 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
 .hud-modal-chat {
-  width: min(960px, 98%);
+  max-width: 960px;
   height: min(720px, 100%);
 }
 
 .hud-modal-job_hunting {
-  width: min(1200px, 98%);
+  max-width: 1120px;
   height: min(880px, 95vh);
 }
 
@@ -4034,6 +4056,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .hud-monitor { width: 210px; min-width: 210px; padding: 10px 8px; }
   .hud-activity { width: 240px; min-width: 240px; padding: 10px 8px; }
   .hud-center-foot { gap: 12px; font-size: 10px; }
+  .hud-modal-backdrop { padding: 10px; justify-content: center; }
 }
 
 @media (max-height: 680px) {

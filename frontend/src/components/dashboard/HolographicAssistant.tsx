@@ -39,6 +39,7 @@ export interface HolographicAssistantProps {
   geminiModel?: string;
   isStartupDiagnostics?: boolean;
   diagnosticPhase?: string;
+  isPanelActive?: boolean;
 }
 
 export function HolographicAssistant({
@@ -61,6 +62,7 @@ export function HolographicAssistant({
   isRevealed = true,
   isStartupDiagnostics = false,
   diagnosticPhase = "idle",
+  isPanelActive = false,
   speaking = false,
   amplitude = 0.0,
   spokenText = "",
@@ -96,7 +98,7 @@ export function HolographicAssistant({
         }
       : null);
 
-  const isWorkspaceActive = Boolean(effectiveWorkspace);
+  const isWorkspaceActive = Boolean(effectiveWorkspace) || Boolean(isPanelActive);
   const handleClose = onCloseWorkspace || onCloseMedia || (() => {});
 
   return (

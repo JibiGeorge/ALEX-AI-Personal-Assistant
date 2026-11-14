@@ -18,6 +18,7 @@ from app.schemas.job_hunting import (
     WorkModality,
 )
 from app.services.job_hunting.deduplication import compute_job_content_hash
+from app.services.job_hunting.geocoding import resolve_location_coordinates
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,8 @@ class JobExtractionService:
             location=location,
         )
 
+        lat, lng, city, state, country, _ = resolve_location_coordinates(location, modality.value)
+
         return JobListing(
             id=str(uuid4()),
             source=source,
@@ -77,6 +80,13 @@ class JobExtractionService:
             title=title,
             location=location,
             modality=modality,
+            city=city,
+            state=state,
+            country=country,
+            latitude=lat,
+            longitude=lng,
+            workplace_type=modality.value,
+            employment_type="Full-time",
             salary_min=extracted.get("salary_min"),
             salary_max=extracted.get("salary_max"),
             salary_currency=extracted.get("salary_currency") or "USD",

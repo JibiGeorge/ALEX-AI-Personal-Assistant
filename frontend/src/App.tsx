@@ -1953,6 +1953,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
           chatBusy={chatBusy}
           voiceActive={voice.active}
           apiKeyConfigured={settings?.api_key_configured ?? false}
+          isPanelActive={activePanel !== "overview"}
           activeMedia={activeMedia}
           onCloseMedia={() => {
             setActiveMedia(null);

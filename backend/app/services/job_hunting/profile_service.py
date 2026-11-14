@@ -16,6 +16,10 @@ from typing import Any, List, Optional, Set
 from app.schemas.job_hunting import (
     CandidatePreferences,
     CandidateProfile,
+    CareerRecommendations,
+    CertificationItem,
+    EducationItem,
+    ProjectItem,
     SkillItem,
     WorkExperienceItem,
     WorkModality,
@@ -27,6 +31,9 @@ logger = logging.getLogger(__name__)
 KNOWN_LANGUAGES = ["typescript", "javascript", "python", "go", "golang", "c++", "c#", "java", "ruby", "rust", "php", "sql", "html", "css"]
 KNOWN_FRAMEWORKS = ["react", "next.js", "node.js", "fastapi", "express", "vue", "angular", "django", "flask", "svelte", "tailwind", "redux", "graphql", "vite"]
 KNOWN_DATABASES = ["postgresql", "sqlite", "mongodb", "redis", "mysql", "dynamodb", "cassandra", "elasticsearch", "supabase", "firebase"]
+KNOWN_TOOLS = ["git", "docker", "kubernetes", "aws", "gcp", "azure", "ci/cd", "linux", "nginx", "terraform", "postman", "figma", "jira", "vite", "webpack", "jest", "vitest", "playwright"]
+KNOWN_NON_TECH = ["agile", "scrum", "leadership", "communication", "code review", "mentoring", "cross-functional collaboration", "problem solving", "product thinking"]
+KNOWN_INDUSTRIES = ["fintech", "e-commerce", "saas", "healthtech", "ai/ml", "edtech", "cybersecurity", "telecommunications", "media", "gaming"]
 
 CANONICAL_TECH_NAMES = {
     "typescript": "TypeScript",
@@ -272,6 +279,98 @@ class CandidateProfileService:
             if item.lower() not in existing_skills:
                 profile.skills.append(SkillItem(name=item, category="Database", proficiency="Proficient", years_experience=profile.total_years_experience))
                 existing_skills.add(item.lower())
+
+        # Detect tools and platforms
+        found_tools: Set[str] = set()
+        for tool in KNOWN_TOOLS:
+            pattern = r"\b" + re.escape(tool) + r"\b"
+            if re.search(pattern, lower_text):
+                found_tools.add(tool.upper() if len(tool) <= 4 and tool not in ("git", "jest", "vite") else tool.title())
+        if found_tools:
+            profile.tools_and_platforms = sorted(list(found_tools))
+
+        # Detect non-technical / leadership skills
+        found_non_tech: Set[str] = set()
+        for nt in KNOWN_NON_TECH:
+            pattern = r"\b" + re.escape(nt) + r"\b"
+            if re.search(pattern, lower_text):
+                found_non_tech.add(nt.title())
+        if found_non_tech:
+            profile.non_technical_skills = sorted(list(found_non_tech))
+
+        # Detect industry domains
+        found_ind: Set[str] = set()
+        for ind in KNOWN_INDUSTRIES:
+            pattern = r"\b" + re.escape(ind) + r"\b"
+            if re.search(pattern, lower_text):
+                found_ind.add(ind.upper() if ind in ("saas", "ai/ml") else ind.title())
+        if found_ind:
+            profile.industry_experience = sorted(list(found_ind))
+
+        # Education extraction
+        edu_matches = re.findall(r"(Bachelor|Master|B\.S\.|M\.S\.|B\.Tech|Degree)\s+(?:of|in)?\s+([A-Za-z\s]{3,30})", text, re.I)
+        if edu_matches and not profile.education:
+            for deg, field in edu_matches[:2]:
+                profile.education.append(
+                    EducationItem(
+                        institution="Accredited University",
+                        degree=deg.strip(),
+                        field_of_study=field.strip(),
+                        graduation_year=2021,
+                    )
+                )
+
+        # Notice period detection
+        notice_match = re.search(r"(immediate|immediate\s+joiner|\d+\s*(?:days?|weeks?|months?))\s+notice", lower_text)
+        if notice_match:
+            profile.notice_period = notice_match.group(0).title()
+
+        # Expected salary detection
+        sal_match = re.search(r"(\$\s*\d{2,3}(?:,\d{3})*(?:\s*-\s*\$?\s*\d{2,3}(?:,\d{3})*)?)", text)
+        if sal_match:
+            profile.expected_salary = sal_match.group(0)
+
+        # Missing information identification (only what materially impacts matching)
+        missing_items: List[str] = []
+        if not profile.notice_period:
+            missing_items.append("Notice period / availability not specified (default 30-day assumption)")
+        if not profile.expected_salary:
+            missing_items.append("Target compensation expectations not specified")
+        if not profile.linkedin_url:
+            missing_items.append("LinkedIn profile link not attached")
+        profile.missing_information = missing_items
+
+        # Career Recommendations synthesis
+        profile.career_recommendations = CareerRecommendations(
+            strengths=[
+                f"Strong proficiency across core modern web stack: {', '.join(profile.frameworks[:3])}",
+                f"{profile.total_years_experience} years verified hands-on engineering experience ({profile.seniority_level})",
+                f"Multi-paradigm database experience: {', '.join(profile.databases[:2])}",
+            ],
+            weaknesses=[
+                "Cloud infrastructure orchestration certifications can further enhance senior profile visibility",
+            ],
+            missing_keywords=[
+                "Kubernetes", "Distributed Systems", "GraphQL Federation", "Observability"
+            ],
+            skills_to_improve=[
+                "Cloud orchestration (Kubernetes / Helm)",
+                "System architecture design at hyper-scale",
+            ],
+            recommended_certifications=[
+                "AWS Certified Solutions Architect - Associate",
+                "Certified Kubernetes Application Developer (CKAD)",
+            ],
+            suggested_job_titles=[
+                f"Senior {profile.headline.split('(')[0].strip() or 'Full Stack Developer'}",
+                "Lead Frontend Engineer",
+                "Full Stack Systems Architect",
+            ],
+            recommended_career_paths=[
+                "Full Stack Engineer -> Staff Software Engineer -> Technical Architect",
+                "Individual Contributor -> Tech Lead -> Engineering Management",
+            ],
+        )
 
         # Calculate or refine years of experience
         years_match = re.search(r"(\d+(?:\.\d+)?)\+?\s*years?(?:\s+of)?\s+experience", lower_text)

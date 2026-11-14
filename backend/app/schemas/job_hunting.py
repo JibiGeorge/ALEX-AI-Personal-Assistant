@@ -22,19 +22,32 @@ class JobSource(str, Enum):
     DIRECT_URL = "direct_url"
     COMPANY_CAREERS = "company_careers"
     MANUAL = "manual"
+    INDEED = "indeed"
+    NAUKRI = "naukri"
+    FOUNDIT = "foundit"
+    GLASSDOOR = "glassdoor"
+    WELLFOUND = "wellfound"
+    INSTAHYRE = "instahyre"
 
 
 class ApplicationStatus(str, Enum):
     DISCOVERED = "discovered"
+    SAVED = "saved"
+    INTERESTED = "interested"
     ANALYZED = "analyzed"
     BOOKMARKED = "bookmarked"
     TAILORED = "tailored"
     READY_FOR_REVIEW = "ready_for_review"
     APPROVED = "approved"
     APPLIED = "applied"
+    ASSESSMENT = "assessment"
+    INTERVIEW_SCHEDULED = "interview_scheduled"
+    INTERVIEW_COMPLETED = "interview_completed"
     INTERVIEWING = "interviewing"
     OFFER = "offer"
+    OFFER_RECEIVED = "offer_received"
     REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
     ARCHIVED = "archived"
 
 
@@ -53,6 +66,46 @@ class ApprovalChannel(str, Enum):
 # ---------------------------------------------------------------------------
 # Candidate Profile Schemas
 # ---------------------------------------------------------------------------
+
+class EducationItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    institution: str
+    degree: str
+    field_of_study: Optional[str] = None
+    graduation_year: Optional[int] = None
+    location: Optional[str] = None
+
+
+class CertificationItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    name: str
+    issuing_organization: Optional[str] = None
+    issue_year: Optional[int] = None
+    credential_url: Optional[str] = None
+
+
+class ProjectItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    title: str
+    description: str
+    tech_stack: List[str] = Field(default_factory=list)
+    project_url: Optional[str] = None
+
+
+class CareerRecommendations(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    strengths: List[str] = Field(default_factory=list)
+    weaknesses: List[str] = Field(default_factory=list)
+    missing_keywords: List[str] = Field(default_factory=list)
+    skills_to_improve: List[str] = Field(default_factory=list)
+    recommended_certifications: List[str] = Field(default_factory=list)
+    suggested_job_titles: List[str] = Field(default_factory=list)
+    recommended_career_paths: List[str] = Field(default_factory=list)
+
 
 class CandidatePreferences(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -89,6 +142,7 @@ class CandidatePreferences(BaseModel):
     excluded_keywords: List[str] = Field(default_factory=list)
     auto_discovery_enabled: bool = True
     discovery_interval_hours: int = Field(default=12, ge=1)
+    factor_weights: Optional[Dict[str, float]] = None
 
 
 class WorkExperienceItem(BaseModel):
@@ -135,6 +189,19 @@ class CandidateProfile(BaseModel):
     databases: List[str] = Field(default_factory=lambda: ["PostgreSQL", "SQLite", "Redis"])
     skills: List[SkillItem] = Field(default_factory=list)
     work_history: List[WorkExperienceItem] = Field(default_factory=list)
+    education: List[EducationItem] = Field(default_factory=list)
+    certifications: List[str] = Field(default_factory=list)
+    projects: List[ProjectItem] = Field(default_factory=list)
+    tools_and_platforms: List[str] = Field(default_factory=list)
+    non_technical_skills: List[str] = Field(default_factory=list)
+    industry_experience: List[str] = Field(default_factory=list)
+    management_experience: Optional[str] = None
+    expected_salary: Optional[str] = None
+    notice_period: Optional[str] = None
+    current_location: Optional[str] = None
+    preferred_locations: List[str] = Field(default_factory=list)
+    missing_information: List[str] = Field(default_factory=list)
+    career_recommendations: Optional[CareerRecommendations] = None
     preferences: CandidatePreferences = Field(default_factory=CandidatePreferences)
     master_resume_path: Optional[str] = None
     raw_resume_text: Optional[str] = None
@@ -163,6 +230,15 @@ class JobListing(BaseModel):
     location: str
     modality: WorkModality = WorkModality.REMOTE
     country: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    workplace_type: str = "remote"  # remote, hybrid, onsite
+    employment_type: str = "Full-time"  # Full-time, Part-time, Contract, Internship
+    logo_url: Optional[str] = None
+    application_deadline: Optional[str] = None
+    recruiter_info: Optional[str] = None
     salary_min: Optional[float] = None
     salary_max: Optional[float] = None
     salary_currency: str = "USD"
@@ -204,14 +280,21 @@ class CompatibilityScore(BaseModel):
     # Overall match (0-100)
     match_percentage: int = Field(default=0, ge=0, le=100)
     overall_score: int = Field(default=0, ge=0, le=100)
+    match_tier: str = "good"  # excellent (85-100), good (70-84), potential (50-69), low (<50)
 
     # 6-Factor Multi-Dimensional Scoring Breakdown
     technical_skills_score: int = Field(default=0, ge=0, le=100)      # Weight: 30%
-    experience_score: int = Field(default=0, ge=0, le=100)            # Weight: 20%
-    responsibilities_score: int = Field(default=0, ge=0, le=100)      # Weight: 20%
-    tech_stack_score: int = Field(default=0, ge=0, le=100)            # Weight: 15%
+    work_experience_score: int = Field(default=0, ge=0, le=100)       # Weight: 25%
+    experience_score: int = Field(default=0, ge=0, le=100)            # Compatibility alias for work_experience_score
+    responsibilities_score: int = Field(default=0, ge=0, le=100)      # Weight: 15%
+    education_score: int = Field(default=0, ge=0, le=100)             # Weight: 10%
+    industry_score: int = Field(default=0, ge=0, le=100)              # Weight: 10%
     location_score: int = Field(default=0, ge=0, le=100)              # Weight: 10%
-    seniority_score: int = Field(default=0, ge=0, le=100)             # Weight: 5%
+    seniority_score: int = Field(default=0, ge=0, le=100)             # Legacy
+    tech_stack_score: int = Field(default=0, ge=0, le=100)            # Legacy
+
+    # Factor weights used for this calculation
+    factor_weights: Dict[str, float] = Field(default_factory=dict)
 
     # Legacy/compatibility aliases
     skills_score: int = Field(default=0, ge=0, le=100)
@@ -227,6 +310,8 @@ class CompatibilityScore(BaseModel):
     experience_gap_analysis: str = ""
     strengths: List[str] = Field(default_factory=list)
     weaknesses: List[str] = Field(default_factory=list)
+    why_matched: str = ""
+    why_not_matched: str = ""
 
     # Recommendation
     ai_recommendation: str = "CONSIDER_TAILORING"
@@ -235,6 +320,44 @@ class CompatibilityScore(BaseModel):
     calculated_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
+
+
+# ---------------------------------------------------------------------------
+# Job Comparison Schemas
+# ---------------------------------------------------------------------------
+
+class JobComparisonRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    job_ids: List[str]
+
+
+class JobComparisonItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    job_id: str
+    title: str
+    company_name: str
+    location: str
+    modality: str
+    salary: str
+    responsibilities: List[str] = Field(default_factory=list)
+    required_skills: List[str] = Field(default_factory=list)
+    matching_skills: List[str] = Field(default_factory=list)
+    missing_skills: List[str] = Field(default_factory=list)
+    experience_required: str = ""
+    match_percentage: int = 0
+    match_tier: str = "good"
+    company_info: str = ""
+    growth_potential: str = ""
+
+
+class JobComparisonResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    compared_jobs: List[JobComparisonItem]
+    best_fit_job_id: str
+    best_fit_job_title: str
+    best_fit_company: str
+    ai_recommendation_reason: str
+    comparison_summary: str
 
 
 # ---------------------------------------------------------------------------

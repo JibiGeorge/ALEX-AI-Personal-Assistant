@@ -163,4 +163,50 @@ describe("HolographicAssistant Dynamic Avatar Positioning (ALEX Step 4)", () => 
     expect(container.querySelector(".holo-concentric-rings")).not.toHaveClass("in-workspace-mode");
     expect(screen.getByText(/WELCOME BACK, COMMANDER/i)).toBeInTheDocument();
   });
+
+  it("transitions avatar to compact bottom-right mode when an interactive HUD panel is active", () => {
+    const { container, rerender } = render(
+      <HolographicAssistant
+        assistantName="ALEX"
+        userName="Commander"
+        mode="idle"
+        hudStyle="face"
+        booting={false}
+        chatBusy={false}
+        voiceActive={false}
+        apiKeyConfigured={true}
+        activeWorkspace={null}
+        activeMedia={null}
+        isPanelActive={true}
+      />
+    );
+
+    // Avatar moves to bottom-right mode
+    const avatarStage = container.querySelector(".hud-avatar-stage");
+    expect(avatarStage).toHaveClass("in-workspace-mode");
+    expect(container.querySelector(".holo-concentric-rings")).toHaveClass("in-workspace-mode");
+    expect(container.querySelector(".compact-avatar-status-pill")).toBeInTheDocument();
+    expect(screen.queryByText(/WELCOME BACK, COMMANDER/i)).not.toBeInTheDocument();
+
+    // When panel is closed (isPanelActive = false), returns to center
+    rerender(
+      <HolographicAssistant
+        assistantName="ALEX"
+        userName="Commander"
+        mode="idle"
+        hudStyle="face"
+        booting={false}
+        chatBusy={false}
+        voiceActive={false}
+        apiKeyConfigured={true}
+        activeWorkspace={null}
+        activeMedia={null}
+        isPanelActive={false}
+      />
+    );
+
+    expect(container.querySelector(".hud-avatar-stage")).not.toHaveClass("in-workspace-mode");
+    expect(container.querySelector(".holo-concentric-rings")).not.toHaveClass("in-workspace-mode");
+    expect(screen.getByText(/WELCOME BACK, COMMANDER/i)).toBeInTheDocument();
+  });
 });

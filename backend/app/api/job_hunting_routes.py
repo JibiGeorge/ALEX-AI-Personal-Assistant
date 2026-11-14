@@ -22,6 +22,7 @@ from app.schemas.job_hunting import (
     BulkExpiryResponse,
     CandidatePreferences,
     CandidateProfile,
+    CareerRecommendations,
     CheckExpiryResponse,
     CompatibilityScore,
     DiscoverJobsRequest,
@@ -34,6 +35,8 @@ from app.schemas.job_hunting import (
     IngestLinkedInAlertRequest,
     IngestLinkedInUrlRequest,
     JobApplication,
+    JobComparisonRequest,
+    JobComparisonResponse,
     JobListResponse,
     JobListing,
     JobSource,
@@ -117,6 +120,33 @@ async def upload_master_resume(
     dest_path = uploads_dir / filename
     dest_path.write_bytes(content)
     return service.ingest_resume_file(dest_path)
+
+
+@router.post("/profile/linkedin", response_model=CandidateProfile)
+async def ingest_linkedin_profile(request: Request):
+    service = get_job_hunting_service(request)
+    body = await request.json()
+    url = body.get("url", "")
+    if not url:
+        raise HTTPException(status_code=400, detail="LinkedIn profile URL is required.")
+    return service.ingest_linkedin_profile(url)
+
+
+@router.get("/career-recommendations", response_model=CareerRecommendations)
+def get_career_recommendations(request: Request):
+    service = get_job_hunting_service(request)
+    return service.get_career_recommendations()
+
+
+@router.post("/compare", response_model=JobComparisonResponse)
+def compare_jobs(payload: JobComparisonRequest, request: Request):
+    service = get_job_hunting_service(request)
+    if not payload.job_ids:
+        raise HTTPException(status_code=400, detail="At least 1 job ID must be provided for comparison.")
+    try:
+        return service.compare_jobs(payload.job_ids)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------

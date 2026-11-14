@@ -29,6 +29,7 @@ export function DiscoverView({
   const [activeSourceTab, setActiveSourceTab] = useState<"linkedin_url" | "alert" | "greenhouse" | "lever" | "direct" | "search">("linkedin_url");
   const [busy, setBusy] = useState(false);
   const [filterModality, setFilterModality] = useState<string>("all");
+  const [filterSource, setFilterSource] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Form states
@@ -132,6 +133,7 @@ export function DiscoverView({
   // Filtered jobs list
   const filteredJobs = jobs.filter((job) => {
     if (filterModality !== "all" && job.modality !== filterModality) return false;
+    if (filterSource !== "all" && !job.source.toLowerCase().includes(filterSource.toLowerCase())) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -459,6 +461,20 @@ export function DiscoverView({
               <option value="hybrid">Hybrid</option>
               <option value="onsite">On-Site</option>
             </select>
+            <select
+              className="jh-select"
+              style={{ padding: "4px 8px", fontSize: "11px" }}
+              value={filterSource}
+              onChange={(e) => setFilterSource(e.target.value)}
+            >
+              <option value="all">All Sources</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="indeed">Indeed</option>
+              <option value="greenhouse">Greenhouse</option>
+              <option value="lever">Lever</option>
+              <option value="public_api">RemoteOK</option>
+              <option value="company_careers">Company Careers</option>
+            </select>
           </div>
         </div>
 
@@ -520,7 +536,7 @@ export function DiscoverView({
                     type="button"
                     className="jh-btn jh-btn-primary"
                     style={{ padding: "4px 10px", fontSize: "11px" }}
-                    onClick={() => { onSelectJob(job.id); onNavigateTab("match"); }}
+                    onClick={() => { onSelectJob(job.id); onNavigateTab("analysis"); }}
                   >
                     Analyze Match
                   </button>

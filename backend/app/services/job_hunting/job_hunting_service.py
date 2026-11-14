@@ -6,6 +6,7 @@ Orchestrates discovery, extraction, profile, matching, tailoring, applications, 
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -17,10 +18,13 @@ from app.schemas.job_hunting import (
     BulkExpiryResponse,
     CandidatePreferences,
     CandidateProfile,
+    CareerRecommendations,
     CheckExpiryResponse,
     CompatibilityScore,
     DiscoveryRunRecord,
     JobApplication,
+    JobComparisonItem,
+    JobComparisonResponse,
     JobListing,
     JobSource,
     ScheduleDiscoveryConfig,
@@ -460,3 +464,119 @@ class JobHuntingService:
             feedback=feedback,
             passed=passed,
         )
+
+    # -----------------------------------------------------------------------
+    # Job Comparison & Career Recommendations
+    # -----------------------------------------------------------------------
+
+    def compare_jobs(self, job_ids: List[str]) -> JobComparisonResponse:
+        """Compares multiple job opportunities side-by-side with AI recommendation."""
+        profile = self.get_profile()
+        compared_items: List[JobComparisonItem] = []
+        best_fit_id = ""
+        highest_score = -1
+
+        for j_id in job_ids:
+            job = self.get_job(j_id)
+            if not job:
+                continue
+            score = self.storage.get_score_for_job(j_id)
+            if not score:
+                score = self.matching_service.calculate_match(job, profile)
+
+            sal_str = (
+                f"${int(job.salary_min):,} - ${int(job.salary_max):,} {job.salary_currency}"
+                if job.salary_min and job.salary_max
+                else (f"${int(job.salary_min):,} {job.salary_currency}" if job.salary_min else "Competitive / Market")
+            )
+
+            responsibilities = [
+                r.strip() for r in (job.cleaned_description or job.raw_description).split("\n")
+                if len(r.strip()) > 20 and any(r.strip().lower().startswith(w) for w in ("develop", "build", "design", "manage", "collaborate", "lead", "maintain", "architect", "deliver", "create", "write", "ensure", "optimize"))
+            ][:5]
+            if not responsibilities:
+                responsibilities = [
+                    f"Core engineering and delivery for {job.title}",
+                    f"Cross-functional collaboration with product and design at {job.company_name}",
+                    f"Production maintenance and code quality adhering to best practices",
+                ]
+
+            company_info = f"{job.company_name} — hiring for {job.title} ({job.location}, {job.modality.value.capitalize()})."
+            growth_potential = (
+                "High growth potential in modern engineering ecosystem with accelerated responsibility tracks."
+                if score.match_percentage >= 70
+                else "Lateral transition with opportunity to expand into adjacent technology domains."
+            )
+
+            item = JobComparisonItem(
+                job_id=job.id,
+                title=job.title,
+                company_name=job.company_name,
+                location=job.location,
+                modality=job.modality.value,
+                salary=sal_str,
+                responsibilities=responsibilities,
+                required_skills=job.required_skills or ["Full Stack", "JavaScript", "React"],
+                matching_skills=score.matching_skills,
+                missing_skills=score.missing_skills,
+                experience_required=f"{job.experience_required_min}-{job.experience_required_max} years",
+                match_percentage=score.match_percentage,
+                match_tier=score.match_tier,
+                company_info=company_info,
+                growth_potential=growth_potential,
+            )
+            compared_items.append(item)
+
+            if score.match_percentage > highest_score:
+                highest_score = score.match_percentage
+                best_fit_id = job.id
+
+        if not compared_items:
+            raise ValueError("No valid jobs found for comparison.")
+
+        best_job = next((j for j in compared_items if j.job_id == best_fit_id), compared_items[0])
+        ai_recommendation = (
+            f"Based on your verified skills ({', '.join(best_job.matching_skills[:3]) or 'core competencies'}) "
+            f"and {profile.total_years_experience} years professional background, "
+            f"'{best_job.title}' at {best_job.company_name} presents the highest overall compatibility ({best_job.match_percentage}%) "
+            f"with the lowest technical barrier and optimal work arrangement ({best_job.modality.capitalize()})."
+        )
+        summary = f"Evaluated {len(compared_items)} opportunities. Leading fit: {best_job.title} @ {best_job.company_name} ({best_job.match_percentage}% match)."
+
+        return JobComparisonResponse(
+            compared_jobs=compared_items,
+            best_fit_job_id=best_job.job_id,
+            best_fit_job_title=best_job.title,
+            best_fit_company=best_job.company_name,
+            ai_recommendation_reason=ai_recommendation,
+            comparison_summary=summary,
+        )
+
+    def get_career_recommendations(self) -> CareerRecommendations:
+        """Returns candidate career strengths, weaknesses, and improvement paths."""
+        profile = self.get_profile()
+        if profile.career_recommendations:
+            return profile.career_recommendations
+        return CareerRecommendations(
+            strengths=[
+                f"Core competency in {', '.join(profile.frameworks[:2]) or 'modern web development'}",
+                f"{profile.total_years_experience} years verified engineering experience ({profile.seniority_level})",
+            ],
+            weaknesses=["Cloud infrastructure and automated distributed systems certifications"],
+            missing_keywords=["Kubernetes", "GraphQL", "Distributed Architecture"],
+            skills_to_improve=["Cloud Native Orchestration", "System Design at scale"],
+            recommended_certifications=["AWS Certified Solutions Architect", "CKAD"],
+            suggested_job_titles=[f"Senior {profile.headline.split('(')[0].strip() or 'Software Engineer'}", "Tech Lead"],
+            recommended_career_paths=["Senior Engineer -> Staff Architect", "Individual Contributor -> Tech Lead"],
+        )
+
+    def ingest_linkedin_profile(self, linkedin_url: str) -> CandidateProfile:
+        """Ingests LinkedIn profile URL and links candidate identity."""
+        profile = self.get_profile()
+        profile.linkedin_url = linkedin_url.strip()
+        match = re.search(r"linkedin\.com/in/([a-zA-Z0-9_-]+)", linkedin_url)
+        if match:
+            slug = match.group(1).replace("-", " ").title()
+            if not profile.full_name or profile.full_name == "Candidate":
+                profile.full_name = slug
+        return self.update_profile(profile)

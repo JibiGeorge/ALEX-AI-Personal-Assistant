@@ -37,12 +37,15 @@ class MatchAnalysisResult(BaseModel):
     """Pydantic model for structured AI Model Ladder output validation."""
     model_config = ConfigDict(extra="ignore")
 
-    technical_skills_score: int = Field(ge=0, le=100)
-    experience_score: int = Field(ge=0, le=100)
-    responsibilities_score: int = Field(ge=0, le=100)
-    tech_stack_score: int = Field(ge=0, le=100)
-    location_score: int = Field(ge=0, le=100)
-    seniority_score: int = Field(ge=0, le=100)
+    technical_skills_score: int = Field(default=0, ge=0, le=100)
+    work_experience_score: int = Field(default=0, ge=0, le=100)
+    experience_score: int = Field(default=0, ge=0, le=100)
+    responsibilities_score: int = Field(default=0, ge=0, le=100)
+    education_score: int = Field(default=85, ge=0, le=100)
+    industry_score: int = Field(default=80, ge=0, le=100)
+    tech_stack_score: int = Field(default=0, ge=0, le=100)
+    location_score: int = Field(default=0, ge=0, le=100)
+    seniority_score: int = Field(default=0, ge=0, le=100)
 
     skills_matched: List[str] = Field(default_factory=list)
     skills_missing: List[str] = Field(default_factory=list)
@@ -50,6 +53,8 @@ class MatchAnalysisResult(BaseModel):
     experience_gaps: List[str] = Field(default_factory=list)
     strengths: List[str] = Field(default_factory=list)
     weaknesses: List[str] = Field(default_factory=list)
+    why_matched: str = ""
+    why_not_matched: str = ""
     ai_recommendation: str = "CONSIDER_TAILORING"
     match_summary: str = ""
 
@@ -101,19 +106,82 @@ class JobMatchingService:
         profile: CandidateProfile,
         analysis: MatchAnalysisResult,
     ) -> CompatibilityScore:
-        # Calculate overall weighted match percentage according to strict specification:
-        # Technical skills 30%, Experience 20%, Responsibilities 20%, Tech stack 15%, Location 10%, Seniority 5%
-        weighted_score = (
-            (0.30 * analysis.technical_skills_score)
-            + (0.20 * analysis.experience_score)
-            + (0.20 * analysis.responsibilities_score)
-            + (0.15 * analysis.tech_stack_score)
-            + (0.10 * analysis.location_score)
-            + (0.05 * analysis.seniority_score)
-        )
+        # Check if user customized the factor weights
+        user_weights = getattr(profile.preferences, "factor_weights", None)
+        work_exp_score = analysis.work_experience_score or analysis.experience_score
+
+        if user_weights:
+            weights = user_weights
+            w_tech = weights.get("technical_skills", 0.30)
+            w_exp = weights.get("work_experience", weights.get("experience", 0.25))
+            w_resp = weights.get("job_responsibilities", weights.get("responsibilities", 0.15))
+            w_edu = weights.get("education", 0.10)
+            w_ind = weights.get("industry", 0.10)
+            w_loc = weights.get("location", 0.10)
+            weighted_score = (
+                (w_tech * analysis.technical_skills_score)
+                + (w_exp * work_exp_score)
+                + (w_resp * analysis.responsibilities_score)
+                + (w_edu * analysis.education_score)
+                + (w_ind * analysis.industry_score)
+                + (w_loc * analysis.location_score)
+            )
+        else:
+            # Standard multi-factor evaluation weights
+            weights = {
+                "technical_skills": 0.30,
+                "experience": 0.20,
+                "responsibilities": 0.20,
+                "tech_stack": 0.15,
+                "location": 0.10,
+                "seniority": 0.05,
+            }
+            weighted_score = (
+                (0.30 * analysis.technical_skills_score)
+                + (0.20 * analysis.experience_score)
+                + (0.20 * analysis.responsibilities_score)
+                + (0.15 * analysis.tech_stack_score)
+                + (0.10 * analysis.location_score)
+                + (0.05 * analysis.seniority_score)
+            )
+
         match_percentage = int(round(max(0, min(100, weighted_score))))
 
-        summary = analysis.match_summary or f"{match_percentage}% compatibility across skills, experience, and tech stack."
+        # Guardrail: Do not classify a job as a strong match based only on its title.
+        # If technical skills or experience is deficient (<50), cap at 70%
+        if analysis.technical_skills_score < 50 or work_exp_score < 50:
+            match_percentage = min(match_percentage, 70)
+
+        # Match Tier categorization
+        if match_percentage >= 85:
+            match_tier = "excellent"
+        elif match_percentage >= 70:
+            match_tier = "good"
+        elif match_percentage >= 50:
+            match_tier = "potential"
+        else:
+            match_tier = "low"
+
+        # Construct clear why matched / why not matched explanations
+        why_matched_parts: List[str] = []
+        if analysis.skills_matched:
+            why_matched_parts.append(f"Strong overlap in core skills: {', '.join(analysis.skills_matched[:4])}")
+        if work_exp_score >= 80:
+            why_matched_parts.append(f"{profile.total_years_experience} years experience aligns with role expectations")
+        if analysis.location_score >= 90:
+            why_matched_parts.append(f"Ideal {job.modality.value.capitalize()} work arrangement fit")
+        why_matched = analysis.why_matched or ("; ".join(why_matched_parts) if why_matched_parts else "Meets baseline criteria.")
+
+        why_not_parts: List[str] = []
+        if analysis.skills_missing:
+            why_not_parts.append(f"Missing verification for: {', '.join(analysis.skills_missing[:3])}")
+        if work_exp_score < 75:
+            why_not_parts.append(f"Experience gap ({profile.total_years_experience} yrs vs requested {job.experience_required_min}-{job.experience_required_max} yrs)")
+        if analysis.location_score < 80:
+            why_not_parts.append(f"Location or work arrangement divergence ({job.location})")
+        why_not_matched = analysis.why_not_matched or ("; ".join(why_not_parts) if why_not_parts else "No critical blockers.")
+
+        summary = analysis.match_summary or f"{match_percentage}% compatibility ({match_tier.upper()}) across technical skills, experience, and role responsibilities."
         gap_summary = "; ".join(analysis.experience_gaps) if analysis.experience_gaps else "No critical experience gaps."
 
         score = CompatibilityScore(
@@ -122,14 +190,19 @@ class JobMatchingService:
             candidate_id=profile.id,
             match_percentage=match_percentage,
             overall_score=match_percentage,
+            match_tier=match_tier,
             technical_skills_score=analysis.technical_skills_score,
-            experience_score=analysis.experience_score,
+            work_experience_score=work_exp_score,
+            experience_score=work_exp_score,
             responsibilities_score=analysis.responsibilities_score,
+            education_score=analysis.education_score,
+            industry_score=analysis.industry_score,
             tech_stack_score=analysis.tech_stack_score,
             location_score=analysis.location_score,
             seniority_score=analysis.seniority_score,
             skills_score=analysis.technical_skills_score,
             location_modality_score=analysis.location_score,
+            factor_weights=weights,
             skills_matched=analysis.skills_matched,
             skills_missing=analysis.skills_missing,
             matching_skills=analysis.skills_matched,
@@ -139,6 +212,8 @@ class JobMatchingService:
             experience_gap_analysis=gap_summary,
             strengths=analysis.strengths,
             weaknesses=analysis.weaknesses,
+            why_matched=why_matched,
+            why_not_matched=why_not_matched,
             ai_recommendation=analysis.ai_recommendation,
             recommended_action=analysis.ai_recommendation,
             match_summary=summary,
@@ -433,6 +508,25 @@ class JobMatchingService:
             seniority_score = 60
             experience_gaps.append(f"Seniority alignment: Profile is '{profile.seniority_level}', role indicates '{job_sen}'.")
 
+        # 7. Education & Qualifications (10%)
+        edu_score = 90
+        has_degree = bool(profile.education) or any(
+            deg in f"{profile.headline} {profile.summary}".lower()
+            for deg in ["bachelor", "master", "bs", "ms", "computer science", "b.tech", "degree"]
+        )
+        if "degree" in job_desc_lower or "bachelor" in job_desc_lower:
+            edu_score = 100 if has_degree else 75
+        else:
+            edu_score = 95
+
+        # 8. Industry Domain Alignment (10%)
+        ind_score = 85
+        if profile.industry_experience:
+            for ind in profile.industry_experience:
+                if ind.lower() in job_desc_lower or ind.lower() in job.company_name.lower():
+                    ind_score = 100
+                    break
+
         # Strengths & Weaknesses
         strengths: List[str] = []
         weaknesses: List[str] = []
@@ -453,15 +547,19 @@ class JobMatchingService:
         if location_score < 80:
             weaknesses.append(f"Work arrangement ({job.modality.value}) may not perfectly match preferred options.")
 
-        # Overall Recommendation
+        # Overall Recommendation according to strict weights:
+        # Technical (30%), Experience (25%), Responsibilities (15%), Education (10%), Industry (10%), Location (10%)
         weighted_total = (
             (0.30 * tech_skills_score)
-            + (0.20 * exp_score)
-            + (0.20 * resp_score)
-            + (0.15 * tech_stack_score)
+            + (0.25 * exp_score)
+            + (0.15 * resp_score)
+            + (0.10 * edu_score)
+            + (0.10 * ind_score)
             + (0.10 * location_score)
-            + (0.05 * seniority_score)
         )
+
+        why_matched_text = "; ".join(strengths) if strengths else "Baseline qualifications satisfied."
+        why_not_text = "; ".join(weaknesses) if weaknesses else "No significant gaps identified."
 
         if weighted_total >= 80:
             ai_rec = "HIGH_MATCH_APPLY"
@@ -471,12 +569,15 @@ class JobMatchingService:
             summary = f"Moderate {int(weighted_total)}% match. Tailoring resume to highlight {', '.join(missing[:2]) or 'requirements'} recommended."
         else:
             ai_rec = "LOW_MATCH_SKIP"
-            summary = f"Low {int(weighted_total)}% match. Notable technical or seniority gap."
+            summary = f"Low {int(weighted_total)}% match. Notable technical or experience gap."
 
         return MatchAnalysisResult(
             technical_skills_score=tech_skills_score,
+            work_experience_score=exp_score,
             experience_score=exp_score,
             responsibilities_score=resp_score,
+            education_score=edu_score,
+            industry_score=ind_score,
             tech_stack_score=tech_stack_score,
             location_score=location_score,
             seniority_score=seniority_score,
@@ -486,50 +587,8 @@ class JobMatchingService:
             experience_gaps=experience_gaps,
             strengths=strengths,
             weaknesses=weaknesses,
-            ai_recommendation=ai_rec,
-            match_summary=summary,
-        )
-
-        if missing:
-            weaknesses.append(f"Missing direct evidence for: {', '.join(missing[:3])}")
-        if exp_score < 80:
-            weaknesses.append(f"Years of experience below target minimum ({cand_exp} vs {req_min} yrs).")
-        if location_score < 80:
-            weaknesses.append(f"Work arrangement ({job.modality.value}) may not perfectly match preferred options.")
-
-        # Overall Recommendation
-        weighted_total = (
-            (0.30 * tech_skills_score)
-            + (0.20 * exp_score)
-            + (0.20 * resp_score)
-            + (0.15 * tech_stack_score)
-            + (0.10 * location_score)
-            + (0.05 * seniority_score)
-        )
-
-        if weighted_total >= 80:
-            ai_rec = "HIGH_MATCH_APPLY"
-            summary = f"Strong {int(weighted_total)}% match. High technical overlap with verified candidate skills."
-        elif weighted_total >= 60:
-            ai_rec = "CONSIDER_TAILORING"
-            summary = f"Moderate {int(weighted_total)}% match. Tailoring resume to highlight {', '.join(missing[:2]) or 'requirements'} recommended."
-        else:
-            ai_rec = "LOW_MATCH_SKIP"
-            summary = f"Low {int(weighted_total)}% match. Notable technical or seniority gap."
-
-        return MatchAnalysisResult(
-            technical_skills_score=tech_skills_score,
-            experience_score=exp_score,
-            responsibilities_score=resp_score,
-            tech_stack_score=tech_stack_score,
-            location_score=location_score,
-            seniority_score=seniority_score,
-            skills_matched=matched,
-            skills_missing=missing,
-            mandatory_requirements_not_met=mandatory_unmet,
-            experience_gaps=experience_gaps,
-            strengths=strengths,
-            weaknesses=weaknesses,
+            why_matched=why_matched_text,
+            why_not_matched=why_not_text,
             ai_recommendation=ai_rec,
             match_summary=summary,
         )

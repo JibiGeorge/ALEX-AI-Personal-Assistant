@@ -59,11 +59,15 @@ All 15 verification checkpoints specified in the audit scope have been strictly 
 15. `backend/app/services/job_hunting/command_router.py`: Natural language voice and command parser.
 16. `backend/app/actions/builtins/job_hunting.py`: 7 core job actions and legacy aliases for `ActionRegistry`.
 17. `backend/app/api/job_hunting_routes.py`: FastAPI REST API routes under `/api/job-hunting/`.
+18. `backend/app/services/job_hunting/geocoding.py`: Verified global tech hub geocoding resolver with zero fake remote coordinates.
 
 ### Backend Files Modified
 1. `backend/app/main.py`: Registered `JobHuntingService`, action definitions, and FastAPI router.
 2. `backend/app/services/conversation_service.py`: Injected job hunting tool guidance and approval safety constraints into system instructions.
 3. `backend/tests/test_api.py`: Updated action registry discovery test to include the 7 new registered actions.
+4. `backend/app/schemas/job_hunting.py`: Added education, certifications, projects, geocoding coordinates, and comparison DTOs.
+5. `backend/app/services/job_hunting/matching_service.py`: Exact 6-factor configurable weights, anti-title bias guardrails, and tier classifications.
+6. `backend/app/services/job_hunting/profile_service.py`: Ground-truth resume extraction for platforms, tools, education, notice period, and career recommendations.
 
 ### Backend Test Files Created
 1. `backend/tests/test_job_hunting.py`: Core CRUD, schema validation, and lifecycle unit tests (16 tests).
@@ -71,6 +75,7 @@ All 15 verification checkpoints specified in the audit scope have been strictly 
 3. `backend/tests/test_job_matching_engine.py`: 10-factor weighted scoring and anti-fabrication tests (6 tests).
 4. `backend/tests/test_resume_studio.py`: Tailoring, DOCX/PDF export, and independent versioning tests (6 tests).
 5. `backend/tests/test_job_hunting_actions.py`: Action registration, approval blocking, and voice command routing tests (22 tests).
+6. `backend/tests/test_job_hunting_advanced.py`: Geocoding verification, custom 6-factor weights, job comparison matrix, and career recommendation tests (5 tests).
 
 ### Frontend Files Created
 1. `frontend/src/types/jobHunting.ts`: Complete TypeScript interface definitions.
@@ -90,6 +95,10 @@ All 15 verification checkpoints specified in the audit scope have been strictly 
 15. `frontend/src/pages/job_hunting/SettingsView.tsx`: Candidate profile, preferences, resume upload, and scheduler.
 16. `frontend/src/pages/job_hunting/JobHuntingPage.tsx`: Main container managing sub-navigation tabs and state.
 17. `frontend/src/pages/job_hunting/JobHuntingPage.test.tsx`: Integration test suite verifying all 11 views and user flows.
+18. `frontend/src/pages/job_hunting/JobLocationMapView.tsx`: Interactive Holographic Geo-Radar map with equirectangular projection, city clustering, pan/zoom, and dedicated remote dock.
+19. `frontend/src/pages/job_hunting/JobLocationMapView.test.tsx`: Unit tests for map rendering, city clusters, remote segregation, and filters (3 tests).
+20. `frontend/src/pages/job_hunting/JobComparisonView.tsx`: Multi-opportunity side-by-side comparison matrix with AI Best-Fit Recommendation synthesis.
+21. `frontend/src/pages/job_hunting/JobComparisonView.test.tsx`: Unit tests for comparison matrix and best-fit recommendation (2 tests).
 
 ### Frontend Files Modified
 1. `frontend/src/types/api.ts`: Added optional `requestBackend` IPC bridge method.
@@ -104,11 +113,11 @@ All 15 verification checkpoints specified in the audit scope have been strictly 
 
 ### Full Backend Pytest Suite
 ```
-Total Tests Executed: 583
-Passed: 582
+Total Tests Executed: 588
+Passed: 587
 Skipped: 1 (platform-dependent audio device test)
 Failed: 0
-Duration: 22.70s
+Duration: 21.85s
 Status: PASS (100%)
 ```
 
@@ -118,29 +127,34 @@ Status: PASS (100%)
 - `tests/test_job_matching_engine.py`: 6 passed
 - `tests/test_resume_studio.py`: 6 passed
 - `tests/test_job_hunting_actions.py`: 22 passed
-- **Total Job Hunting Backend Tests: 62 passed, 0 failed**
+- `tests/test_job_hunting_advanced.py`: 5 passed
+- **Total Job Hunting Backend Tests: 67 passed, 0 failed**
 
 ### Full Frontend Vitest Suite
 ```
-Total Test Files: 26
-Total Tests Executed: 193
-Passed: 193
+Total Test Files: 27
+Total Tests Executed: 196
+Passed: 196
 Failed: 0
-Duration: 9.99s
+Duration: 8.57s
 Status: PASS (100%)
 ```
 
 **Job Hunting Frontend Test Suite**:
 - `src/pages/job_hunting/JobHuntingPage.test.tsx`: 7 passed, 0 failed (100%)
+- `src/pages/job_hunting/JobLocationMapView.test.tsx`: 3 passed, 0 failed (100%)
+- `src/pages/job_hunting/JobComparisonView.test.tsx`: 2 passed, 0 failed (100%)
+- **Total Job Hunting Frontend Tests: 12 passed, 0 failed (100%)**
 
 ### TypeScript Compilation & Production Build
 ```
-npx tsc --noEmit: Passed with 0 errors
-npm run build: Passed with exit code 0
+tsc -p tsconfig.json --noEmit: Passed with 0 errors
+tsc -p tsconfig.electron.json: Passed with 0 errors
+vite build: Passed with exit code 0
 Vite production bundle generated at dist/:
 - dist/index.html (0.96 kB)
-- dist/assets/index.css (181.35 kB)
-- dist/assets/index.js (1,252.24 kB)
+- dist/assets/index.css (193.55 kB)
+- dist/assets/index.js (1,293.11 kB)
 ```
 
 ---

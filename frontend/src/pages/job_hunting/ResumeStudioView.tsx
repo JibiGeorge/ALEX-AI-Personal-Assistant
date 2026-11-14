@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { jobHuntingApi } from "../../services/jobHuntingApi";
-import type { CandidateProfile, JobListing, TailoredDocument } from "../../types/jobHunting";
+import type { CandidateProfile, CareerRecommendations, JobListing, TailoredDocument } from "../../types/jobHunting";
 
 interface ResumeStudioViewProps {
   job: JobListing | null;
@@ -9,6 +9,7 @@ interface ResumeStudioViewProps {
   onSelectJob: (jobId: string) => void;
   onNavigateTab?: (tab: string) => void;
   onError: (msg: string) => void;
+  onProfileUpdated?: (profile: CandidateProfile) => void;
 }
 
 export function ResumeStudioView({
@@ -16,8 +17,13 @@ export function ResumeStudioView({
   allJobs,
   candidateProfile,
   onSelectJob,
+  onNavigateTab,
   onError,
+  onProfileUpdated,
 }: ResumeStudioViewProps) {
+  const [studioMode, setStudioMode] = useState<"tailor" | "master_analysis">(job ? "tailor" : "master_analysis");
+
+  // Tailored document states
   const [documents, setDocuments] = useState<TailoredDocument[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<TailoredDocument | null>(null);
   const [editorContent, setEditorContent] = useState("");
@@ -25,7 +31,12 @@ export function ResumeStudioView({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [showOriginalModal, setShowOriginalModal] = useState(false);
+
+  // Master profile & analysis states
+  const [linkedInInput, setLinkedInInput] = useState("");
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [careerRecs, setCareerRecs] = useState<CareerRecommendations | null>(null);
+  const [loadingRecs, setLoadingRecs] = useState(false);
 
   // Load documents for current job
   useEffect(() => {
@@ -45,7 +56,6 @@ export function ResumeStudioView({
         if (!active) return;
         setDocuments(res.documents || []);
         if (res.documents && res.documents.length > 0) {
-          // Select newest version by default
           const newest = res.documents[res.documents.length - 1];
           setSelectedDoc(newest);
           setEditorContent(newest.resume_markdown);
@@ -65,6 +75,53 @@ export function ResumeStudioView({
       active = false;
     };
   }, [job?.id]);
+
+  // Fetch career recommendations on mount or when switching to master analysis
+  useEffect(() => {
+    if (studioMode === "master_analysis" && !careerRecs) {
+      setLoadingRecs(true);
+      jobHuntingApi
+        .getCareerRecommendations()
+        .then((recs) => setCareerRecs(recs))
+        .catch(() => {})
+        .finally(() => setLoadingRecs(false));
+    }
+  }, [studioMode, careerRecs]);
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingResume(true);
+    try {
+      const text = await file.text();
+      const updated = await jobHuntingApi.uploadMasterResume({
+        raw_text: text,
+        file_name: file.name,
+      });
+      if (onProfileUpdated) onProfileUpdated(updated);
+      const recs = await jobHuntingApi.getCareerRecommendations();
+      setCareerRecs(recs);
+    } catch (err: any) {
+      onError(`Resume upload failed: ${err.message}`);
+    } finally {
+      setUploadingResume(false);
+    }
+  }
+
+  async function handleLinkedInImport(e: React.FormEvent) {
+    e.preventDefault();
+    if (!linkedInInput.trim()) return;
+    setUploadingResume(true);
+    try {
+      const updated = await jobHuntingApi.ingestLinkedInProfile(linkedInInput.trim());
+      if (onProfileUpdated) onProfileUpdated(updated);
+      setLinkedInInput("");
+    } catch (err: any) {
+      onError(`LinkedIn import failed: ${err.message}`);
+    } finally {
+      setUploadingResume(false);
+    }
+  }
 
   function handleSelectVersion(docId: string) {
     const doc = documents.find((d) => d.id === docId);
@@ -99,11 +156,9 @@ export function ResumeStudioView({
         resume_markdown: editorContent,
         create_new_version: asNewVersion,
       });
-
       if (asNewVersion) {
         setDocuments((prev) => [...prev, updated]);
         setSelectedDoc(updated);
-        setEditorContent(updated.resume_markdown);
       } else {
         setDocuments((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
         setSelectedDoc(updated);
@@ -115,305 +170,425 @@ export function ResumeStudioView({
     }
   }
 
-  if (!job) {
-    return (
-      <div>
-        <div className="jh-header">
-          <div className="jh-header-titles">
-            <h2><span>📝</span> ALEX RESUME STUDIO</h2>
-            <p>Targeted ATS resume customization grounded strictly in verified candidate history.</p>
-          </div>
-        </div>
-
-        <div className="jh-empty-state">
-          <h3>No Target Job Selected</h3>
-          <p>Select a job posting to prepare or review customized ATS resumes.</p>
-          {allJobs.length > 0 && (
-            <div style={{ marginTop: "1rem", maxWidth: "500px", margin: "1rem auto 0" }}>
-              <select
-                className="jh-input"
-                onChange={(e) => {
-                  if (e.target.value) onSelectJob(e.target.value);
-                }}
-                defaultValue=""
-              >
-                <option value="" disabled>-- Select a Job --</option>
-                {allJobs.map((j) => (
-                  <option key={j.id} value={j.id}>
-                    {j.title} @ {j.company_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      {/* Header & Controls */}
-      <div className="jh-header">
+    <div className="jh-studio-container" data-testid="resume-studio-view">
+      {/* Studio Mode Selector */}
+      <div className="jh-header" style={{ marginBottom: "1rem" }}>
         <div className="jh-header-titles">
-          <h2><span>📝</span> RESUME STUDIO: {job.title.toUpperCase()}</h2>
+          <h2>
+            <span>📝</span> RESUME STUDIO: {job ? job.title.toUpperCase() : "AI CAREER ANALYSIS & TAILORING"}
+          </h2>
           <p>
-            {job.company_name} • {job.modality.toUpperCase()} • Grounded ATS Resume Customization
+            Extract verified credentials, analyze ATS keywords and career paths, and craft job-specific customized applications.
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <select
-            className="jh-input"
-            value={job.id}
-            onChange={(e) => onSelectJob(e.target.value)}
-            style={{ width: "auto", fontSize: "0.8rem", padding: "0.3rem 0.6rem" }}
+        <div className="jh-view-mode-pill-group">
+          <button
+            type="button"
+            className={`jh-btn ${studioMode === "master_analysis" ? "jh-btn-primary" : "jh-btn-secondary"}`}
+            style={{ fontSize: "0.75rem", padding: "0.35rem 0.75rem" }}
+            onClick={() => setStudioMode("master_analysis")}
           >
-            {allJobs.map((j) => (
-              <option key={j.id} value={j.id}>
-                {j.title} ({j.company_name})
-              </option>
-            ))}
-          </select>
-
+            📋 Master Profile & Recommendations
+          </button>
+          <button
+            type="button"
+            className={`jh-btn ${studioMode === "tailor" ? "jh-btn-primary" : "jh-btn-secondary"}`}
+            style={{ fontSize: "0.75rem", padding: "0.35rem 0.75rem" }}
+            onClick={() => setStudioMode("tailor")}
+          >
+            🎯 Job Tailoring Studio
+          </button>
           <button
             type="button"
             className="jh-btn jh-btn-secondary"
-            onClick={() => setShowOriginalModal(true)}
+            style={{ fontSize: "0.75rem", padding: "0.35rem 0.75rem" }}
+            onClick={() => onNavigateTab?.("recommended")}
           >
-            Original Master Resume 👁
+            Matches 🎯
           </button>
         </div>
       </div>
 
-      {/* Top Metadata Bar: Version Selector & Downloads */}
-      <div className="jh-card" style={{ marginBottom: "1rem", padding: "0.75rem 1rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <span style={{ fontSize: "0.85rem", color: "var(--hud-text-secondary)" }}>Version:</span>
-            {documents.length > 0 ? (
-              <select
-                className="jh-input"
-                value={selectedDoc?.id || ""}
-                onChange={(e) => handleSelectVersion(e.target.value)}
-                style={{ width: "auto", padding: "0.25rem 0.5rem" }}
-              >
-                {documents.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    v{d.version_number} ({new Date(d.created_at).toLocaleDateString()} {new Date(d.created_at).toLocaleTimeString()})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span style={{ fontSize: "0.85rem", color: "var(--hud-text-secondary)" }}>
-                No versions generated yet
-              </span>
-            )}
+      {/* MODE 1: MASTER PROFILE & AI CAREER RECOMMENDATIONS */}
+      {studioMode === "master_analysis" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.2rem" }}>
+          {/* Upload & LinkedIn Importer Card */}
+          <div
+            className="jh-card"
+            style={{
+              padding: "1.2rem",
+              background: "rgba(2, 11, 18, 0.9)",
+              borderColor: "rgba(0, 229, 255, 0.35)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 0.5rem 0", color: "var(--hud-cyan-bright)", fontSize: "1rem" }}>
+              📥 INGEST PROFILE & RESUME
+            </h3>
+            <p style={{ margin: "0 0 1rem 0", fontSize: "0.8rem", color: "var(--hud-text-secondary)" }}>
+              Upload your resume (PDF, DOCX, DOC, TXT) or link your LinkedIn profile. The system strictly extracts verified facts without fabrication.
+            </p>
 
-            {selectedDoc && (
-              <span className="jh-tag" style={{ color: "var(--hud-success)" }}>
-                ✓ Original Resume Preserved
-              </span>
-            )}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+              {/* File Upload */}
+              <div
+                style={{
+                  border: "2px dashed rgba(0, 229, 255, 0.35)",
+                  borderRadius: "8px",
+                  padding: "1.2rem",
+                  textAlign: "center",
+                  background: "rgba(0, 229, 255, 0.03)",
+                }}
+              >
+                <div style={{ fontSize: "1.5rem", marginBottom: "0.4rem" }}>📄</div>
+                <label
+                  className="jh-btn jh-btn-primary"
+                  style={{ cursor: "pointer", display: "inline-block", fontSize: "0.8rem", padding: "0.4rem 0.9rem" }}
+                >
+                  {uploadingResume ? "Ingesting Resume..." : "Upload Resume (PDF/DOCX/TXT)"}
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.txt"
+                    onChange={handleFileUpload}
+                    style={{ display: "none" }}
+                    disabled={uploadingResume}
+                  />
+                </label>
+                <div style={{ marginTop: "0.5rem", fontSize: "0.7rem", color: "var(--hud-text-secondary)" }}>
+                  Auto-extracts tech stack, work history, and education
+                </div>
+              </div>
+
+              {/* LinkedIn Importer */}
+              <form
+                onSubmit={handleLinkedInImport}
+                style={{
+                  border: "1px solid rgba(0, 229, 255, 0.25)",
+                  borderRadius: "8px",
+                  padding: "1.2rem",
+                  background: "rgba(2, 15, 24, 0.6)",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center",
+                }}
+              >
+                <label style={{ fontSize: "0.75rem", color: "var(--hud-cyan-bright)", marginBottom: "0.4rem", fontWeight: "bold" }}>
+                  🔗 LINKEDIN PROFILE URL
+                </label>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <input
+                    type="url"
+                    placeholder="https://linkedin.com/in/username"
+                    className="jh-input"
+                    value={linkedInInput}
+                    onChange={(e) => setLinkedInInput(e.target.value)}
+                    style={{ fontSize: "0.8rem", padding: "0.4rem 0.6rem" }}
+                  />
+                  <button
+                    type="submit"
+                    className="jh-btn jh-btn-primary"
+                    disabled={uploadingResume || !linkedInInput.trim()}
+                    style={{ fontSize: "0.75rem", padding: "0.4rem 0.8rem" }}
+                  >
+                    Import
+                  </button>
+                </div>
+                <div style={{ marginTop: "0.4rem", fontSize: "0.7rem", color: "var(--hud-text-secondary)" }}>
+                  Attaches verified public profile handle for recruiter communications
+                </div>
+              </form>
+            </div>
           </div>
 
-          {selectedDoc && (
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <a
-                href={jobHuntingApi.getDownloadUrl(selectedDoc.id, "docx", "resume")}
-                download={`Resume_${job.company_name.replace(/\s+/g, "_")}_v${selectedDoc.version_number}.docx`}
-                className="jh-btn jh-btn-secondary"
-                style={{ textDecoration: "none", fontSize: "0.8rem" }}
-              >
-                Download DOCX
-              </a>
-              <a
-                href={jobHuntingApi.getDownloadUrl(selectedDoc.id, "pdf", "resume")}
-                download={`Resume_${job.company_name.replace(/\s+/g, "_")}_v${selectedDoc.version_number}.pdf`}
-                className="jh-btn jh-btn-secondary"
-                style={{ textDecoration: "none", fontSize: "0.8rem" }}
-              >
-                Download PDF
-              </a>
-              <button
-                type="button"
-                className="jh-btn jh-btn-secondary"
-                disabled={saving}
-                onClick={() => handleSave(false)}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                className="jh-btn jh-btn-primary"
-                disabled={saving}
-                onClick={() => handleSave(true)}
-              >
-                Save as v{(documents.length > 0 ? Math.max(...documents.map((d) => d.version_number)) : 0) + 1}
-              </button>
+          {/* Missing Information Alert Banner */}
+          {candidateProfile?.missing_information && candidateProfile.missing_information.length > 0 && (
+            <div
+              className="jh-card"
+              style={{
+                borderColor: "rgba(251, 191, 36, 0.6)",
+                background: "rgba(251, 191, 36, 0.08)",
+                padding: "0.8rem 1rem",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "#fbbf24", fontWeight: "bold", fontSize: "0.85rem" }}>
+                <span>⚠️</span> INFORMATION RECOMMENDATION (NON-BLOCKING)
+              </div>
+              <ul style={{ margin: "4px 0 0 0", paddingLeft: "20px", fontSize: "0.75rem", color: "#fef3c7" }}>
+                {candidateProfile.missing_information.map((item, idx) => (
+                  <li key={idx}>{item}</li>
+                ))}
+              </ul>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Relevant Skills and ATS Keywords Identified */}
-      {selectedDoc && (
-        <div className="jh-card" style={{ marginBottom: "1rem", padding: "0.75rem 1rem" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-            <div>
-              <div style={{ fontSize: "0.75rem", color: "var(--hud-text-secondary)", marginBottom: "0.25rem" }}>
-                Relevant Technical Skills Highlighted:
+          {/* Verified Profile Credentials Overview */}
+          {candidateProfile && (
+            <div
+              className="jh-card"
+              style={{
+                padding: "1rem",
+                background: "rgba(2, 11, 18, 0.85)",
+                borderColor: "rgba(0, 229, 255, 0.3)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.8rem" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#e0f7fa" }}>{candidateProfile.full_name}</h3>
+                  <div style={{ fontSize: "0.85rem", color: "var(--hud-cyan-bright)", marginTop: "2px" }}>
+                    {candidateProfile.headline}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--hud-text-secondary)", marginTop: "2px" }}>
+                    📍 {candidateProfile.location} · ⏱️ {candidateProfile.total_years_experience} Yrs Experience ({candidateProfile.seniority_level})
+                  </div>
+                </div>
+                <span className="jh-badge jh-badge-source">
+                  {candidateProfile.is_verified ? "✓ VERIFIED BY PARSER" : "SELF-REPORTED"}
+                </span>
               </div>
-              <div className="jh-job-tags">
-                {selectedDoc.relevant_skills_identified?.slice(0, 8).map((sk) => (
-                  <span key={sk} className="jh-tag" style={{ color: "var(--hud-cyan)" }}>
-                    {sk}
-                  </span>
-                )) || <span style={{ fontSize: "0.8rem" }}>Standard skills alignment</span>}
+
+              {/* Skills and Tech Stack Overview */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.8rem" }}>
+                <div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--hud-text-secondary)", textTransform: "uppercase" }}>Languages</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "3px" }}>
+                    {candidateProfile.programming_languages.map((l) => (
+                      <span key={l} className="jh-tag" style={{ fontSize: "0.7rem" }}>{l}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--hud-text-secondary)", textTransform: "uppercase" }}>Frameworks & Libraries</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "3px" }}>
+                    {candidateProfile.frameworks.map((f) => (
+                      <span key={f} className="jh-tag" style={{ fontSize: "0.7rem" }}>{f}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div style={{ fontSize: "0.7rem", color: "var(--hud-text-secondary)", textTransform: "uppercase" }}>Databases & Cloud</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "3px" }}>
+                    {candidateProfile.databases.map((d) => (
+                      <span key={d} className="jh-tag" style={{ fontSize: "0.7rem" }}>{d}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {candidateProfile.tools_and_platforms && candidateProfile.tools_and_platforms.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: "0.7rem", color: "var(--hud-text-secondary)", textTransform: "uppercase" }}>Tools & Platforms</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "3px" }}>
+                      {candidateProfile.tools_and_platforms.slice(0, 6).map((t) => (
+                        <span key={t} className="jh-tag" style={{ fontSize: "0.7rem" }}>{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+          )}
 
-            <div>
-              <div style={{ fontSize: "0.75rem", color: "var(--hud-text-secondary)", marginBottom: "0.25rem" }}>
-                ATS Keywords Integrated:
-              </div>
-              <div className="jh-job-tags">
-                {selectedDoc.ats_keywords_included?.slice(0, 8).map((kw) => (
-                  <span key={kw} className="jh-tag" style={{ color: "var(--hud-teal)" }}>
-                    {kw}
-                  </span>
-                )) || <span style={{ fontSize: "0.8rem" }}>Role keywords</span>}
-              </div>
+          {/* AI Career Recommendations & Path Diagnostics */}
+          <div
+            className="jh-card"
+            style={{
+              padding: "1.2rem",
+              background: "linear-gradient(135deg, rgba(0, 229, 255, 0.08) 0%, rgba(2, 11, 18, 0.95) 100%)",
+              borderColor: "rgba(0, 229, 255, 0.45)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.8rem" }}>
+              <span style={{ fontSize: "1.2rem" }}>🔮</span>
+              <h3 style={{ margin: 0, fontSize: "1rem", color: "var(--hud-cyan-bright)" }}>
+                AI CAREER INTELLIGENCE & PATH RECOMMENDATIONS
+              </h3>
             </div>
+
+            {loadingRecs && <div className="jh-empty-state">Synthesizing career path telemetry...</div>}
+
+            {careerRecs && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.2rem" }}>
+                {/* Strengths & Weaknesses */}
+                <div>
+                  <strong style={{ fontSize: "0.8rem", color: "#4ade80", textTransform: "uppercase" }}>
+                    Verified Strengths
+                  </strong>
+                  <ul style={{ margin: "4px 0 0.8rem 0", paddingLeft: "18px", fontSize: "0.75rem", color: "#e0f7fa" }}>
+                    {careerRecs.strengths.map((s, idx) => (
+                      <li key={idx}>{s}</li>
+                    ))}
+                  </ul>
+
+                  <strong style={{ fontSize: "0.8rem", color: "#fbbf24", textTransform: "uppercase" }}>
+                    Missing ATS Keywords To Target
+                  </strong>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginTop: "4px" }}>
+                    {careerRecs.missing_keywords.map((kw, idx) => (
+                      <span key={idx} className="jh-tag" style={{ color: "#fbbf24", borderColor: "rgba(251, 191, 36, 0.4)" }}>
+                        + {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recommended Certifications & Career Paths */}
+                <div>
+                  <strong style={{ fontSize: "0.8rem", color: "var(--hud-cyan-bright)", textTransform: "uppercase" }}>
+                    Recommended Certifications
+                  </strong>
+                  <ul style={{ margin: "4px 0 0.8rem 0", paddingLeft: "18px", fontSize: "0.75rem", color: "#e0f7fa" }}>
+                    {careerRecs.recommended_certifications.map((c, idx) => (
+                      <li key={idx}>{c}</li>
+                    ))}
+                  </ul>
+
+                  <strong style={{ fontSize: "0.8rem", color: "#c084fc", textTransform: "uppercase" }}>
+                    Suggested Career Paths
+                  </strong>
+                  <ul style={{ margin: "4px 0 0 0", paddingLeft: "18px", fontSize: "0.75rem", color: "#e0f7fa" }}>
+                    {careerRecs.recommended_career_paths.map((p, idx) => (
+                      <li key={idx}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Main Studio View: Dual Pane (Editor & Live Preview) or Generation Prompt */}
-      {loading ? (
-        <div className="jh-empty-state">Loading tailored resume versions...</div>
-      ) : documents.length === 0 ? (
-        <div className="jh-card" style={{ padding: "2rem", textAlign: "center" }}>
-          <h3 style={{ color: "var(--hud-cyan)", marginBottom: "0.5rem" }}>
-            No Tailored Resume Generated for this Opportunity Yet
-          </h3>
-          <p style={{ color: "var(--hud-text-secondary)", maxWidth: "600px", margin: "0 auto 1.5rem" }}>
-            ALEX will review your master profile against this job description, highlighting relevant project achievements,
-            languages, and frameworks without fabricating any experience.
-          </p>
+      {/* MODE 2: JOB-SPECIFIC TAILORING STUDIO */}
+      {studioMode === "tailor" && (
+        <>
+          {/* Target Opportunity Selector */}
+          <div className="jh-card" style={{ marginBottom: "1rem", padding: "0.75rem 1rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.8rem", color: "var(--hud-text-secondary)" }}>Target Opportunity:</label>
+                <select
+                  value={job?.id || ""}
+                  onChange={(e) => onSelectJob(e.target.value)}
+                  className="jh-input"
+                  style={{ width: "auto", minWidth: "260px" }}
+                >
+                  {allJobs.map((j) => (
+                    <option key={j.id} value={j.id}>
+                      {j.title} @ {j.company_name} ({j.location})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-          <div style={{ maxWidth: "550px", margin: "0 auto", textAlign: "left" }}>
-            <label style={{ fontSize: "0.8rem", color: "var(--hud-text-secondary)", display: "block", marginBottom: "0.35rem" }}>
-              Custom Instructions (Optional):
-            </label>
-            <input
-              type="text"
-              className="jh-input"
-              placeholder="e.g., Emphasize React 19 architecture and Next.js full-stack capabilities"
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              style={{ marginBottom: "1rem" }}
-            />
-            <div style={{ textAlign: "center" }}>
+              {documents.length > 0 && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <label style={{ fontSize: "0.8rem", color: "var(--hud-text-secondary)" }}>Version:</label>
+                  <select
+                    value={selectedDoc?.id || ""}
+                    onChange={(e) => handleSelectVersion(e.target.value)}
+                    className="jh-input"
+                    style={{ width: "auto" }}
+                  >
+                    {documents.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        v{d.version_number} ({new Date(d.created_at).toLocaleDateString()})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="jh-btn jh-btn-secondary"
+                    onClick={() => handleSave(false)}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Save Draft"}
+                  </button>
+                  <button
+                    type="button"
+                    className="jh-btn jh-btn-primary"
+                    onClick={() => handleSave(true)}
+                  >
+                    Save as v{(documents.length > 0 ? Math.max(...documents.map((d) => d.version_number)) : 0) + 1}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Dual Pane Editor */}
+          {loading ? (
+            <div className="jh-empty-state">Loading tailored resume versions...</div>
+          ) : documents.length === 0 ? (
+            <div className="jh-card" style={{ padding: "2rem", textAlign: "center" }}>
+              <h3 style={{ color: "var(--hud-cyan-bright)", marginBottom: "0.5rem" }}>
+                No Tailored Resume Generated for this Opportunity Yet
+              </h3>
+              <p style={{ color: "var(--hud-text-secondary)", maxWidth: "600px", margin: "0 auto 1.5rem" }}>
+                ALEX will analyze your verified profile against '{job?.title || "Target Role"}', aligning keywords and highlights strictly without fabrication.
+              </p>
               <button
                 type="button"
                 className="jh-btn jh-btn-primary"
-                disabled={generating}
+                disabled={generating || !job}
                 onClick={handleGenerateNew}
                 style={{ minWidth: "220px" }}
               >
                 {generating ? "Generating Tailored Resume..." : "Generate Tailored Resume"}
               </button>
             </div>
-          </div>
-        </div>
-      ) : (
-        <div className="jh-dual-pane">
-          {/* Left Pane: Markdown Source Editor */}
-          <div className="jh-pane">
-            <div className="jh-pane-header">
-              <span>ATS MARKDOWN SOURCE (v{selectedDoc?.version_number})</span>
-              <span style={{ fontSize: "0.75rem", color: "var(--hud-text-secondary)" }}>
-                Editable text
-              </span>
-            </div>
-            <textarea
-              className="jh-editor-textarea"
-              value={editorContent}
-              onChange={(e) => setEditorContent(e.target.value)}
-              placeholder="Resume markdown content..."
-              spellCheck={false}
-            />
-          </div>
+          ) : (
+            <div className="jh-dual-pane">
+              <div className="jh-pane">
+                <div className="jh-pane-header">
+                  <span>ATS MARKDOWN SOURCE (v{selectedDoc?.version_number})</span>
+                  <span style={{ fontSize: "0.75rem", color: "var(--hud-text-secondary)" }}>Editable</span>
+                </div>
+                <textarea
+                  className="jh-editor-textarea"
+                  value={editorContent}
+                  onChange={(e) => setEditorContent(e.target.value)}
+                  placeholder="Resume markdown content..."
+                  spellCheck={false}
+                />
+              </div>
 
-          {/* Right Pane: Live Document HUD Preview */}
-          <div className="jh-pane">
-            <div className="jh-pane-header">
-              <span>LIVE HUD PREVIEW</span>
-              <span style={{ fontSize: "0.75rem", color: "var(--hud-success)" }}>
-                Formatted Display
-              </span>
+              <div className="jh-pane">
+                <div className="jh-pane-header">
+                  <span>LIVE HUD PREVIEW</span>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    {selectedDoc && (
+                      <>
+                        <a
+                          href={`/api/job-hunting/tailored/${selectedDoc.id}/export?type=resume&format=docx`}
+                          className="jh-btn jh-btn-secondary"
+                          style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", textDecoration: "none" }}
+                          download
+                        >
+                          Download DOCX
+                        </a>
+                        <a
+                          href={`/api/job-hunting/tailored/${selectedDoc.id}/export?type=resume&format=pdf`}
+                          className="jh-btn jh-btn-secondary"
+                          style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", textDecoration: "none" }}
+                          download
+                        >
+                          Download PDF
+                        </a>
+                      </>
+                    )}
+                    <span style={{ fontSize: "0.75rem", color: "var(--hud-cyan-bright)" }}>Export Ready</span>
+                  </div>
+                </div>
+                <div className="jh-preview-container">
+                  <pre style={{ margin: 0, whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "0.82rem", color: "#e0f7fa" }}>
+                    {editorContent}
+                  </pre>
+                </div>
+              </div>
             </div>
-            <div className="jh-preview-container">
-              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", margin: 0 }}>
-                {editorContent}
-              </pre>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal for viewing original unchanged resume */}
-      {showOriginalModal && (
-        <div className="jh-dialog-overlay" onClick={() => setShowOriginalModal(false)}>
-          <div
-            className="jh-dialog"
-            style={{ maxWidth: "750px", width: "95%" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="jh-dialog-title" style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>MASTER RESUME (READ-ONLY REFERENCE)</span>
-              <button
-                type="button"
-                className="jh-btn jh-btn-secondary"
-                style={{ padding: "0.1rem 0.5rem" }}
-                onClick={() => setShowOriginalModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ fontSize: "0.85rem", color: "var(--hud-text-secondary)", marginBottom: "1rem" }}>
-              This is your immutable master resume ground truth. Tailored versions are created independently without modifying this document.
-            </div>
-
-            <div
-              style={{
-                maxHeight: "450px",
-                overflowY: "auto",
-                background: "rgba(0, 0, 0, 0.4)",
-                padding: "1rem",
-                borderRadius: "4px",
-                fontSize: "0.85rem",
-                lineHeight: "1.6",
-                whiteSpace: "pre-wrap",
-                border: "1px solid var(--hud-border)",
-              }}
-            >
-              {candidateProfile?.raw_resume_text || "No raw resume text stored in candidate profile."}
-            </div>
-
-            <div style={{ marginTop: "1rem", textAlign: "right" }}>
-              <button
-                type="button"
-                className="jh-btn jh-btn-primary"
-                onClick={() => setShowOriginalModal(false)}
-              >
-                Close Reference
-              </button>
-            </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
