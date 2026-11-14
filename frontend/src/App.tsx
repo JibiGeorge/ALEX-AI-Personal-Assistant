@@ -269,6 +269,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
   const [wakeWordStatus, setWakeWordStatus] = useState<WakeStatusResponse | null>(null);
   const [wakeWordDownloading, setWakeWordDownloading] = useState(false);
   const [voiceState, setVoiceState] = useState<string>("SLEEPING");
+  const [activityDockCollapsed, setActivityDockCollapsed] = useState(false);
 
   const addActivity = useCallback((kind: ActivityKind, text: string) => {
     setActivity((current) => {
@@ -2143,10 +2144,54 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
                   onError={(text) => setNotice({ kind: "error", text })}
                 />
               ) : activePanel === "job_hunting" ? (
-                <JobHuntingPage
-                  onError={(text) => setNotice({ kind: "error", text })}
-                  onOpenSettings={() => openPanel("settings")}
-                />
+                <div className="job-docked-layout-split">
+                  <div className="job-docked-primary-pane">
+                    <JobHuntingPage
+                      onError={(text) => setNotice({ kind: "error", text })}
+                      onOpenSettings={() => openPanel("settings")}
+                      onActivity={addActivity}
+                    />
+                  </div>
+                  {activity.length > 0 && !activityDockCollapsed && (
+                    <aside className="job-docked-activity-pane" aria-label="Live Career Activity Log">
+                      <div className="docked-activity-header">
+                        <div className="docked-activity-title">
+                          <span className="live-activity-dot" />
+                          <span>LIVE RADAR ACTIVITY</span>
+                          <span className="docked-activity-count">{activity.length}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="docked-activity-collapse-btn"
+                          onClick={() => setActivityDockCollapsed(true)}
+                          title="Collapse live activity log"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="docked-activity-scroll">
+                        {activity.slice(-30).map((entry) => (
+                          <div key={entry.id} className={`docked-log-entry kind-${entry.kind.toLowerCase()}`}>
+                            <span className="docked-log-time">{entry.time}</span>
+                            <span className="docked-log-kind">{entry.kind}:</span>
+                            <span className="docked-log-text">{entry.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </aside>
+                  )}
+                  {activity.length > 0 && activityDockCollapsed && (
+                    <button
+                      type="button"
+                      className="job-docked-activity-expand-tab"
+                      onClick={() => setActivityDockCollapsed(false)}
+                      title="Expand live radar activity log"
+                    >
+                      <span className="live-activity-dot" />
+                      <span>ACTIVITY ({activity.length}) ◀</span>
+                    </button>
+                  )}
+                </div>
               ) : (
                 <ConversationPage
                   assistantName={assistantName}

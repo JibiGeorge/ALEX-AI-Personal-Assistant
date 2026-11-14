@@ -118,9 +118,9 @@ export function HolographicAssistant({
       } diag-phase-${diagnosticPhase}`}
       data-diag-phase={diagnosticPhase}
     >
-      {/* Background Graphic & Laser Scanning Ambient Layer */}
+      {/* Background Graphic & Laser Scanning Ambient Layer (suppressed during active panels/workspace to avoid slicing content) */}
       <div className="hud-starfield" aria-hidden="true" />
-      <div className="hud-laser-scanline" aria-hidden="true" />
+      {!isWorkspaceActive && <div className="hud-laser-scanline" aria-hidden="true" />}
 
       {/* Dynamic Central HUD Workspace (active during media/file/document/image/tool activities) */}
       {isWorkspaceActive && effectiveWorkspace && (

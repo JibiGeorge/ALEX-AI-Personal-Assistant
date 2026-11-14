@@ -46,9 +46,10 @@ export type JobHuntingTab =
 interface JobHuntingPageProps {
   onError?: (msg: string) => void;
   onOpenSettings?: () => void;
+  onActivity?: (kind: "SYS" | "ALEX" | "YOU" | "ERR", text: string) => void;
 }
 
-export function JobHuntingPage({ onError }: JobHuntingPageProps) {
+export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onActivity }: JobHuntingPageProps) {
   const [activeTab, setActiveTab] = useState<JobHuntingTab>("dashboard");
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [adapters, setAdapters] = useState<AdapterStatusReport[]>([]);
@@ -68,6 +69,9 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
     setNotice({ kind, text });
     if (kind === "error" && onError) {
       onError(text);
+    }
+    if (onActivity) {
+      onActivity(kind === "error" ? "ERR" : "SYS", text);
     }
   }
 
@@ -143,6 +147,7 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
   // Handlers
   async function handleQuickIngestUrl(url: string) {
     try {
+      onActivity?.("ALEX", `Ingesting and analyzing vacancy from URL: ${url}`);
       let newJob: JobListing;
       if (url.includes("linkedin.com/jobs")) {
         newJob = await jobHuntingApi.ingestLinkedInUrl(url);
@@ -152,6 +157,7 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
       setJobs((prev) => [newJob, ...prev]);
       setSelectedJobId(newJob.id);
       showNotice("success", `Ingested job: ${newJob.title} @ ${newJob.company_name}`);
+      onActivity?.("ALEX", `Extracted ${newJob.title} at ${newJob.company_name}. Ready for match scoring.`);
     } catch (err: any) {
       showNotice("error", `Ingest failed: ${err.message}`);
       throw err;
@@ -184,10 +190,12 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
 
   async function handleIngestGreenhouse(boardToken: string, filterRole?: string) {
     try {
+      onActivity?.("ALEX", `Searching Greenhouse board '${boardToken}' for vacancies...`);
       const ingested = await jobHuntingApi.ingestGreenhouse(boardToken, filterRole);
       setJobs((prev) => [...ingested, ...prev]);
       if (ingested.length > 0) setSelectedJobId(ingested[0].id);
       showNotice("success", `Ingested ${ingested.length} jobs from Greenhouse (${boardToken}).`);
+      onActivity?.("ALEX", `Discovered ${ingested.length} vacancies on Greenhouse (${boardToken}).`);
     } catch (err: any) {
       showNotice("error", `Greenhouse ingestion failed: ${err.message}`);
       throw err;
@@ -196,10 +204,12 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
 
   async function handleIngestLever(siteName: string, filterRole?: string) {
     try {
+      onActivity?.("ALEX", `Searching Lever board '${siteName}' for vacancies...`);
       const ingested = await jobHuntingApi.ingestLever(siteName, filterRole);
       setJobs((prev) => [...ingested, ...prev]);
       if (ingested.length > 0) setSelectedJobId(ingested[0].id);
       showNotice("success", `Ingested ${ingested.length} jobs from Lever (${siteName}).`);
+      onActivity?.("ALEX", `Discovered ${ingested.length} vacancies on Lever (${siteName}).`);
     } catch (err: any) {
       showNotice("error", `Lever ingestion failed: ${err.message}`);
       throw err;
@@ -220,6 +230,7 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
 
   async function handleTriggerSearch(query: string, location: string, modalities: string[]) {
     try {
+      onActivity?.("ALEX", `Searching multi-platform sources for '${query}' in '${location || "Global"}'...`);
       const discovered = await jobHuntingApi.discoverJobs(query, location, modalities);
       setJobs((prev) => {
         const existingIds = new Set(prev.map((j) => j.id));
@@ -228,6 +239,7 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
       });
       if (discovered.length > 0) setSelectedJobId(discovered[0].id);
       showNotice("success", `Discovery completed: ${discovered.length} jobs retrieved.`);
+      onActivity?.("ALEX", `Multi-platform search returned ${discovered.length} matching vacancy listings.`);
     } catch (err: any) {
       showNotice("error", `Discovery failed: ${err.message}`);
       throw err;
@@ -236,9 +248,12 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
 
   async function handleRunMatch(jobId: string) {
     try {
+      const target = jobs.find((j) => j.id === jobId);
+      onActivity?.("ALEX", `Scoring 10-factor compatibility for '${target?.title || "role"}' at ${target?.company_name || "company"}...`);
       const score = await jobHuntingApi.calculateMatch(jobId);
       setScores((prev) => ({ ...prev, [jobId]: score }));
       showNotice("success", `Match calculated: ${score.match_percentage}%`);
+      onActivity?.("ALEX", `Compatibility score for '${target?.title || "role"}': ${score.match_percentage}% (${score.match_tier || "scored"})`);
     } catch (err: any) {
       showNotice("error", `Match failed: ${err.message}`);
       throw err;
@@ -247,11 +262,14 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
 
   async function handleTailorResume(jobId: string, instructions?: string) {
     try {
+      const target = jobs.find((j) => j.id === jobId);
+      onActivity?.("ALEX", `Drafting tailored cover letter and resume optimization for ${target?.company_name || "target role"}...`);
       const doc = await jobHuntingApi.tailorResume(jobId, instructions);
       // Refresh applications list
       const apps = await jobHuntingApi.listApplications();
       setApplications(apps);
       showNotice("success", `Resume & Cover letter prepared (v${doc.version_number})`);
+      onActivity?.("ALEX", `Tailored resume & cover letter finalized (v${doc.version_number}) for ${target?.company_name || "role"}.`);
     } catch (err: any) {
       showNotice("error", `Tailoring failed: ${err.message}`);
       throw err;
