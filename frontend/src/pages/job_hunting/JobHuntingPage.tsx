@@ -29,6 +29,7 @@ import { ResumeStudioView } from "./ResumeStudioView";
 import { SettingsView } from "./SettingsView";
 import { PrivacyView } from "./PrivacyView";
 import { JobOnboardingWizard } from "../../components/onboarding/JobOnboardingWizard";
+import type { JobCommandDetails } from "../../utils/workspaceCommands";
 
 export type JobHuntingTab =
   | "dashboard"
@@ -50,9 +51,15 @@ interface JobHuntingPageProps {
   onError?: (msg: string) => void;
   onOpenSettings?: () => void;
   onActivity?: (kind: "SYS" | "ALEX" | "YOU" | "ERR", text: string) => void;
+  jobCommandRequest?: { id: number; command: JobCommandDetails } | null;
 }
 
-export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onActivity }: JobHuntingPageProps) {
+export function JobHuntingPage({
+  onError,
+  onOpenSettings: _onOpenSettings,
+  onActivity,
+  jobCommandRequest,
+}: JobHuntingPageProps) {
   const [activeTab, setActiveTab] = useState<JobHuntingTab>("dashboard");
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [adapters, setAdapters] = useState<AdapterStatusReport[]>([]);
@@ -149,6 +156,57 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
       active = false;
     };
   }, []);
+
+  // Natural Language & Voice Command Dispatcher (Phase 8)
+  useEffect(() => {
+    if (!jobCommandRequest) return;
+    const { command } = jobCommandRequest;
+
+    if (command.type === "summary_today") {
+      navigateTab("dashboard");
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const todayJobs = jobs.filter((j) => new Date(j.discovered_at).getTime() > oneDayAgo);
+      const highScores = Object.values(scores).filter((s) => s.match_percentage >= 80).length;
+      showNotice(
+        "success",
+        `Today's Discovery: ${todayJobs.length || jobs.length} roles found, ${highScores} high matches (≥80%).`,
+      );
+    } else if (command.type === "search_filter") {
+      navigateTab("discover");
+      showNotice(
+        "success",
+        `Filtered by ${command.modality ? `${command.modality} ` : ""}${command.query || ""} (≥${command.minScore || 80}% match).`,
+      );
+    } else if (command.type === "tailor") {
+      const target = (command.targetCompany || "").toLowerCase();
+      const matchedJob = jobs.find(
+        (j) => j.company_name.toLowerCase().includes(target) || j.title.toLowerCase().includes(target),
+      );
+      if (matchedJob) {
+        setSelectedJobId(matchedJob.id);
+        navigateTab("resume");
+        showNotice("success", `Loaded Resume Studio for ${matchedJob.title} @ ${matchedJob.company_name}.`);
+      } else {
+        navigateTab("resume");
+        showNotice("success", `Opening Resume Studio for ${command.targetCompany || "target role"}.`);
+      }
+    } else if (command.type === "update_status") {
+      const target = (command.targetCompany || "").toLowerCase();
+      const matchedJob = jobs.find(
+        (j) => j.company_name.toLowerCase().includes(target) || j.title.toLowerCase().includes(target),
+      );
+      if (matchedJob && command.newStatus) {
+        const app = applications.find((a) => a.job_id === matchedJob.id);
+        const appId = app?.id || `app-${matchedJob.id}`;
+        handleUpdateStatus(appId, command.newStatus as any).catch(() => {});
+        navigateTab("applications");
+        showNotice("success", `Moved ${matchedJob.company_name} to ${command.newStatus.toUpperCase()}.`);
+      } else {
+        navigateTab("applications");
+        showNotice("success", `Switched to Applications Tracker.`);
+      }
+    }
+  }, [jobCommandRequest]);
 
   const selectedJob = jobs.find((j) => j.id === selectedJobId) || jobs[0] || null;
   const selectedScore = selectedJob ? scores[selectedJob.id] || null : null;

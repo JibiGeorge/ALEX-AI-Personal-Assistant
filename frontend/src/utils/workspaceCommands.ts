@@ -5,14 +5,25 @@
 
 import type { WorkspaceActivityType } from "../types/workspace";
 
+export interface JobCommandDetails {
+  type: "search_filter" | "tailor" | "update_status" | "summary_today" | "show_approvals" | "show_interviews";
+  query?: string;
+  minScore?: number;
+  modality?: string;
+  targetCompany?: string;
+  targetRole?: string;
+  newStatus?: string;
+}
+
 export interface WorkspaceCommandResult {
   isWorkspaceCommand: boolean;
-  action: "open" | "close" | "pause" | "resume" | "minimize" | "restore" | "none";
+  action: "open" | "close" | "pause" | "resume" | "minimize" | "restore" | "job_command" | "none";
   activityType?: WorkspaceActivityType;
   panel?: "overview" | "chat" | "memory" | "settings" | "search" | "audio" | "reminders" | "actions" | "computer" | "job_hunting";
   query?: string;
   source?: string;
   title?: string;
+  jobCommand?: JobCommandDetails;
 }
 
 function cleanInput(input: string): string {
@@ -138,6 +149,78 @@ export function parseWorkspaceCommand(input: string): WorkspaceCommandResult {
   }
 
   // 4. Job Hunting & Career Radar HUD panel commands
+  // 4a. Specific Natural Language Job Controls (Phase 8)
+  const filterJobsMatch = cleaned.match(/^(?:show|find|filter|list|get)\s+(.+?)\s+over\s+(\d+)%?$/i);
+  if (filterJobsMatch) {
+    const rawSubject = filterJobsMatch[1];
+    const minScore = parseInt(filterJobsMatch[2], 10);
+    const isRemote = /\bremote\b/i.test(rawSubject);
+    const query = rawSubject.replace(/\b(?:remote|jobs?|roles?|opportunities)\b/gi, "").trim();
+    return {
+      isWorkspaceCommand: true,
+      action: "job_command",
+      panel: "job_hunting",
+      title: "Career Radar Filter",
+      jobCommand: {
+        type: "search_filter",
+        query: query || "React",
+        minScore,
+        modality: isRemote ? "remote" : undefined,
+      },
+    };
+  }
+
+  const tailorMatch = cleaned.match(/^tailor\s+(?:my\s+)?(?:resume\s+)?for\s+(?:the\s+)?(.+?)(?:\s+role|\s+job)?$/i);
+  if (tailorMatch && !/^(this|this role|this job|my application)$/i.test(tailorMatch[1].trim())) {
+    const target = tailorMatch[1].trim();
+    return {
+      isWorkspaceCommand: true,
+      action: "job_command",
+      panel: "job_hunting",
+      title: `Tailor Resume for ${target}`,
+      jobCommand: {
+        type: "tailor",
+        targetCompany: target,
+        targetRole: target,
+      },
+    };
+  }
+
+  const moveMatch = cleaned.match(/^move\s+(.+?)\s+to\s+([a-zA-Z_\-]+)$/i);
+  if (moveMatch) {
+    const target = moveMatch[1].trim();
+    const newStatus = moveMatch[2].trim().toLowerCase();
+    return {
+      isWorkspaceCommand: true,
+      action: "job_command",
+      panel: "job_hunting",
+      title: `Move ${target} to ${newStatus}`,
+      jobCommand: {
+        type: "update_status",
+        targetCompany: target,
+        newStatus,
+      },
+    };
+  }
+
+  if (
+    /^(what\s+(?:new\s+)?jobs\s+did\s+you\s+find(?:\s+today)?|summarize\s+jobs\s+found\s+today|new\s+jobs\s+today|jobs\s+found\s+today)$/i.test(cleaned) ||
+    cleaned === "what jobs did you find today" ||
+    cleaned === "what jobs did you find" ||
+    cleaned === "summarize jobs found today"
+  ) {
+    return {
+      isWorkspaceCommand: true,
+      action: "job_command",
+      panel: "job_hunting",
+      title: "Today's Opportunities Summary",
+      jobCommand: {
+        type: "summary_today",
+      },
+    };
+  }
+
+  // 4b. General open job hunting panel
   if (
     /^(?:open|show|launch|start|display|view|switch to|access)\s+(?:the\s+)?(?:job\s+hunting|career\s+radar|career\s+hub|job\s+search|job\s+hunter|career)(?:\s+(?:on|in|to)\s+(?:the\s+)?(?:hud|dashboard|screen|workspace))?$/i.test(cleaned) ||
     /^(?:job\s+hunting|career\s+radar|career\s+hub|job\s+hunter)(?:\s+(?:on|in|to)\s+(?:the\s+)?(?:hud|dashboard|screen|workspace))?$/i.test(cleaned) ||

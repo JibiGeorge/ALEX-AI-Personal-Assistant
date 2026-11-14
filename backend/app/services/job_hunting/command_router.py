@@ -47,6 +47,41 @@ def route_job_command(text: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     ) or lower in ("compare this job with my resume", "match this job against my resume", "compare with resume"):
         return ("job_match_resume", {})
 
+    # 1b. What jobs did you find today?
+    if re.search(
+        r"\b(?:what\s+(?:new\s+)?jobs\s+did\s+you\s+find|summarize\s+jobs\s+found\s+today|new\s+jobs\s+today|jobs\s+found\s+today)\b",
+        lower,
+    ) or lower in ("what jobs did you find today", "what jobs did you find", "what new jobs do i have"):
+        return ("job_summary_today", {})
+
+    # 1c. Tailor my resume for a specific role / company
+    # e.g. "Tailor my resume for the Bjak role", "Tailor resume for Stripe"
+    tailor_role_match = re.search(
+        r"\btailor\s+(?:my\s+)?(?:resume\s+)?for\s+(?:the\s+)?(.+?)(?:\s+role|\s+job)?$",
+        lower,
+    )
+    if tailor_role_match and not any(k in lower for k in ("this job", "this role", "my application")):
+        target = tailor_role_match.group(1).strip()
+        return ("job_tailor_resume", {"target": target})
+
+    # 1d. Move [target] to [status]
+    # e.g. "Move Bjak to Applied", "Move Stripe to Interview"
+    move_match = re.search(r"\bmove\s+(.+?)\s+to\s+([a-zA-Z_\-]+)\b", lower)
+    if move_match:
+        target = move_match.group(1).strip()
+        status_name = move_match.group(2).strip().lower()
+        return ("job_update_status", {"target": target, "status": status_name})
+
+    # 1e. Filter jobs with threshold
+    # e.g. "Show remote React jobs over 80%", "Show jobs over 80%"
+    filter_match = re.search(r"\b(?:show|find|list|filter|get)\s+(.+?)\s+over\s+(\d+)%?", lower)
+    if filter_match:
+        keywords = filter_match.group(1).strip()
+        min_score = int(filter_match.group(2))
+        is_remote = "remote" in keywords
+        clean_query = re.sub(r"\b(?:remote|jobs|roles|opportunities)\b", "", keywords).strip()
+        return ("job_filter_jobs", {"query": clean_query, "min_score": min_score, "is_remote": is_remote})
+
     # 2. Prepare application
     # "Prepare my application." / "Tailor my resume for this job."
     if re.search(

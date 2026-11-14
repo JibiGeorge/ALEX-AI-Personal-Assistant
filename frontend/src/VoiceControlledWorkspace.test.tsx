@@ -363,4 +363,34 @@ describe("ALEX Step 7: Voice-Controlled Dynamic HUD Workspace", () => {
       expect(container.querySelector(".hud-avatar-stage")).not.toHaveClass("in-workspace-mode");
     });
   });
+
+  it("handles Phase 8 voice command: 'Show remote React jobs over 80%' to open job panel and filter", async () => {
+    const { container } = render(<App />);
+    await waitFor(() => expect(capturedVoiceCallbacks).toBeTruthy());
+
+    await capturedVoiceCallbacks.onTranscript("Show remote React jobs over 80%", "");
+    await waitFor(() => {
+      expect(container.querySelector(".job-docked-layout-split")).toBeInTheDocument();
+    });
+  });
+
+  it("handles Phase 8 voice command: 'Tailor my resume for the Bjak role'", async () => {
+    const { container } = render(<App />);
+    await waitFor(() => expect(capturedVoiceCallbacks).toBeTruthy());
+
+    await capturedVoiceCallbacks.onTranscript("Tailor my resume for the Bjak role", "");
+    await waitFor(() => {
+      expect(container.querySelector(".job-docked-layout-split")).toBeInTheDocument();
+    });
+  });
+
+  it("handles Phase 8 voice command: 'Move Bjak to Applied'", async () => {
+    const { container } = render(<App />);
+    await waitFor(() => expect(capturedVoiceCallbacks).toBeTruthy());
+
+    await capturedVoiceCallbacks.onTranscript("Move Bjak to Applied", "");
+    await waitFor(() => {
+      expect(container.querySelector(".job-docked-layout-split")).toBeInTheDocument();
+    });
+  });
 });

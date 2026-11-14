@@ -12,7 +12,7 @@ import { HolographicAssistant } from "./components/dashboard/HolographicAssistan
 import { ActivityDrawer } from "./components/dashboard/ActivityDrawer";
 import { CommandInput } from "./components/dashboard/CommandInput";
 import { isActivityLogCloseCommand, isActivityLogOpenCommand, parseMediaCommand } from "./utils/activityCommands";
-import { parseWorkspaceCommand } from "./utils/workspaceCommands";
+import { parseWorkspaceCommand, type JobCommandDetails } from "./utils/workspaceCommands";
 import type { WorkspaceActivity, WorkspaceActivityType } from "./types/workspace";
 import { MemoryPage } from "./pages/MemoryPage";
 import { ConversationPage, type ChatMessage } from "./pages/ConversationPage";
@@ -270,6 +270,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
   const [wakeWordDownloading, setWakeWordDownloading] = useState(false);
   const [voiceState, setVoiceState] = useState<string>("SLEEPING");
   const [activityDockCollapsed, setActivityDockCollapsed] = useState(false);
+  const [jobCommandPayload, setJobCommandPayload] = useState<{ id: number; command: JobCommandDetails } | null>(null);
 
   const addActivity = useCallback((kind: ActivityKind, text: string) => {
     setActivity((current) => {
@@ -609,6 +610,27 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
       const wsCmd = parseWorkspaceCommand(text);
       if (!wsCmd.isWorkspaceCommand) {
         return { handled: false };
+      }
+
+      // 0a. Specific Job Hunting Voice/Chat Commands (Phase 8)
+      if (wsCmd.action === "job_command" && wsCmd.jobCommand) {
+        openPanel("job_hunting");
+        const jc = wsCmd.jobCommand;
+        let reply = "Updated Career Radar.";
+
+        if (jc.type === "summary_today") {
+          reply = "Queried today's job discovery radar. Showing updated opportunities on the HUD.";
+        } else if (jc.type === "search_filter") {
+          reply = `Filtering career radar for ${jc.modality ? `${jc.modality} ` : ""}${jc.query || ""} jobs with match score ≥ ${jc.minScore || 80}%.`;
+        } else if (jc.type === "tailor") {
+          reply = `Initiating resume tailoring and cover letter draft for ${jc.targetCompany || "target role"}.`;
+        } else if (jc.type === "update_status") {
+          reply = `Transitioned application for ${jc.targetCompany || "target role"} to ${jc.newStatus?.toUpperCase()} in pipeline tracker.`;
+        }
+
+        setJobCommandPayload({ id: Date.now(), command: jc });
+        addActivity("ALEX", reply);
+        return { handled: true, replyText: reply };
       }
 
       // 0. Open HUD Modal Panels (e.g. Job Hunting & Career Radar)
@@ -2159,6 +2181,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
                       onError={(text) => setNotice({ kind: "error", text })}
                       onOpenSettings={() => openPanel("settings")}
                       onActivity={addActivity}
+                      jobCommandRequest={jobCommandPayload}
                     />
                   </div>
                   {activity.length > 0 && !activityDockCollapsed && (

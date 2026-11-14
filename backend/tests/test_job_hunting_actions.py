@@ -328,6 +328,33 @@ class TestNaturalLanguageVoiceRouting:
         assert route_job_command("Play some relaxing music.") is None
         assert route_job_command("Open the camera on hud display.") is None
 
+    def test_phase_8_natural_language_job_commands(self):
+        # 1. "Show remote React jobs over 80%"
+        cmd1 = route_job_command("Show remote React jobs over 80%")
+        assert cmd1 is not None
+        assert cmd1[0] == "job_filter_jobs"
+        assert cmd1[1]["min_score"] == 80
+        assert cmd1[1]["is_remote"] is True
+        assert "react" in cmd1[1]["query"].lower()
+
+        # 2. "Tailor my resume for the Bjak role"
+        cmd2 = route_job_command("Tailor my resume for the Bjak role")
+        assert cmd2 is not None
+        assert cmd2[0] == "job_tailor_resume"
+        assert cmd2[1]["target"].lower() == "bjak"
+
+        # 3. "Move Bjak to Applied"
+        cmd3 = route_job_command("Move Bjak to Applied")
+        assert cmd3 is not None
+        assert cmd3[0] == "job_update_status"
+        assert cmd3[1]["target"].lower() == "bjak"
+        assert cmd3[1]["status"] == "applied"
+
+        # 4. "What jobs did you find today?"
+        cmd4 = route_job_command("What jobs did you find today?")
+        assert cmd4 is not None
+        assert cmd4[0] == "job_summary_today"
+
 
 class TestConversationVoiceIntegration:
     """Verifies that ConversationService and LiveVoiceService execute Job Hunting actions."""

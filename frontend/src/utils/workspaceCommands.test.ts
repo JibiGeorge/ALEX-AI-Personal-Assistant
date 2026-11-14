@@ -235,6 +235,39 @@ describe("workspaceCommands parser", () => {
     expect(setCmd.panel).toBe("settings");
   });
 
+  it("recognizes Phase 8 natural language job control commands", () => {
+    // 1. "Show remote React jobs over 80%"
+    const filterCmd = parseWorkspaceCommand("Show remote React jobs over 80%");
+    expect(filterCmd.isWorkspaceCommand).toBe(true);
+    expect(filterCmd.action).toBe("job_command");
+    expect(filterCmd.panel).toBe("job_hunting");
+    expect(filterCmd.jobCommand?.type).toBe("search_filter");
+    expect(filterCmd.jobCommand?.query).toBe("react");
+    expect(filterCmd.jobCommand?.minScore).toBe(80);
+    expect(filterCmd.jobCommand?.modality).toBe("remote");
+
+    // 2. "Tailor my resume for the Bjak role"
+    const tailorCmd = parseWorkspaceCommand("Tailor my resume for the Bjak role");
+    expect(tailorCmd.isWorkspaceCommand).toBe(true);
+    expect(tailorCmd.action).toBe("job_command");
+    expect(tailorCmd.jobCommand?.type).toBe("tailor");
+    expect(tailorCmd.jobCommand?.targetCompany).toBe("bjak");
+
+    // 3. "Move Bjak to Applied"
+    const moveCmd = parseWorkspaceCommand("Move Bjak to Applied");
+    expect(moveCmd.isWorkspaceCommand).toBe(true);
+    expect(moveCmd.action).toBe("job_command");
+    expect(moveCmd.jobCommand?.type).toBe("update_status");
+    expect(moveCmd.jobCommand?.targetCompany).toBe("bjak");
+    expect(moveCmd.jobCommand?.newStatus).toBe("applied");
+
+    // 4. "What jobs did you find today?"
+    const summaryCmd = parseWorkspaceCommand("What jobs did you find today?");
+    expect(summaryCmd.isWorkspaceCommand).toBe(true);
+    expect(summaryCmd.action).toBe("job_command");
+    expect(summaryCmd.jobCommand?.type).toBe("summary_today");
+  });
+
   it("does not match unrelated commands", () => {
     expect(parseWorkspaceCommand("what is the weather today").isWorkspaceCommand).toBe(false);
     expect(parseWorkspaceCommand("").isWorkspaceCommand).toBe(false);
