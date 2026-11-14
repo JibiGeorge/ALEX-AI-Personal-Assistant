@@ -256,6 +256,27 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
     }
   }
 
+  async function handleIngestLinkedInDataExport(file: File) {
+    try {
+      onActivity?.("ALEX", `Parsing official LinkedIn export file: ${file.name}...`);
+      const ingested = await jobHuntingApi.ingestLinkedInDataExport(file);
+      setJobs((prev) => {
+        const existingIds = new Set(prev.map((j) => j.id));
+        const newOnes = ingested.filter((j) => !existingIds.has(j.id));
+        return [...newOnes, ...prev];
+      });
+      if (ingested.length > 0) {
+        setSelectedJobId(ingested[0].id);
+        ingested.forEach((j) => autoScoreJob(j.id));
+      }
+      showNotice("success", `Ingested ${ingested.length} opportunities from LinkedIn data export.`);
+      onActivity?.("ALEX", `Extracted and imported ${ingested.length} positions from LinkedIn archive.`);
+    } catch (err: any) {
+      showNotice("error", `LinkedIn export ingestion failed: ${err.message}`);
+      throw err;
+    }
+  }
+
   async function handleTriggerSearch(query: string, location: string, modalities: string[]) {
     try {
       onActivity?.("ALEX", `Searching multi-platform sources for '${query}' in '${location || "Global"}'...`);
@@ -688,6 +709,7 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
                 onIngestLever={handleIngestLever}
                 onIngestDirectUrl={handleIngestDirectUrl}
                 onTriggerSearch={handleTriggerSearch}
+                onIngestLinkedInDataExport={handleIngestLinkedInDataExport}
               />
             )}
 

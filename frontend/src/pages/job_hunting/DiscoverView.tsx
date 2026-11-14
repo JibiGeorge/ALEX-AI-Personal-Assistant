@@ -12,6 +12,7 @@ interface DiscoverViewProps {
   onIngestLever: (siteName: string, filterRole?: string) => Promise<void>;
   onIngestDirectUrl: (url: string, title?: string, company?: string, rawText?: string, modality?: string) => Promise<void>;
   onTriggerSearch: (query: string, location: string, modalities: string[]) => Promise<void>;
+  onIngestLinkedInDataExport?: (file: File) => Promise<void>;
 }
 
 export function DiscoverView({
@@ -25,12 +26,14 @@ export function DiscoverView({
   onIngestLever,
   onIngestDirectUrl,
   onTriggerSearch,
+  onIngestLinkedInDataExport,
 }: DiscoverViewProps) {
-  const [activeSourceTab, setActiveSourceTab] = useState<"linkedin_url" | "alert" | "greenhouse" | "lever" | "direct" | "search">("linkedin_url");
+  const [activeSourceTab, setActiveSourceTab] = useState<"linkedin_url" | "alert" | "data_export" | "greenhouse" | "lever" | "direct" | "search">("linkedin_url");
   const [busy, setBusy] = useState(false);
   const [filterModality, setFilterModality] = useState<string>("all");
   const [filterSource, setFilterSource] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [exportFile, setExportFile] = useState<File | null>(null);
 
   // Form states
   const [liUrl, setLiUrl] = useState("");
@@ -130,6 +133,18 @@ export function DiscoverView({
     }
   }
 
+  async function handleExportSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!exportFile || !onIngestLinkedInDataExport) return;
+    setBusy(true);
+    try {
+      await onIngestLinkedInDataExport(exportFile);
+      setExportFile(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Filtered jobs list
   const filteredJobs = jobs.filter((job) => {
     if (filterModality !== "all" && job.modality !== filterModality) return false;
@@ -155,12 +170,36 @@ export function DiscoverView({
         </div>
       </div>
 
+      {/* Platform Terms & LinkedIn Compliance Notice */}
+      <div
+        style={{
+          background: "rgba(0, 217, 255, 0.05)",
+          border: "1px solid rgba(0, 217, 255, 0.3)",
+          borderRadius: "6px",
+          padding: "10px 14px",
+          marginBottom: "16px",
+          display: "flex",
+          gap: "10px",
+          alignItems: "center",
+          fontSize: "12px",
+          lineHeight: "1.5",
+          color: "var(--hud-text-primary)",
+        }}
+      >
+        <span style={{ fontSize: "16px", flexShrink: 0 }}>🛡️</span>
+        <div>
+          <strong style={{ color: "var(--hud-accent)" }}>Platform Compliance & Ethical Ingestion: </strong>
+          ALEX strictly respects platform terms of service and anti-bot protections. ALEX does not scrape behind authenticated logins, bypass CAPTCHAs, or conduct unauthorized automated harvesting. Ingestion is supported through 4 authorized paths: (1) Manual URL paste, (2) Public ATS APIs (Greenhouse/Lever), (3) Forwarded job alert email parser, and (4) User-provided official LinkedIn Data Export files.
+        </div>
+      </div>
+
       {/* Source Ingestion Tabs */}
       <div className="jh-card">
         <div style={{ display: "flex", gap: "6px", borderBottom: "1px solid var(--hud-border)", paddingBottom: "10px", marginBottom: "14px", flexWrap: "wrap" }}>
           {[
             { id: "linkedin_url", label: "LinkedIn Job Link" },
-            { id: "alert", label: "LinkedIn Alert Email" },
+            { id: "alert", label: "Job Alert Email" },
+            { id: "data_export", label: "LinkedIn Data Export (ZIP/CSV)" },
             { id: "greenhouse", label: "Greenhouse Board" },
             { id: "lever", label: "Lever Board" },
             { id: "direct", label: "Careers Page URL" },
@@ -258,7 +297,50 @@ export function DiscoverView({
           </form>
         )}
 
-        {/* 3. Greenhouse Board Form */}
+        {/* 3. Official LinkedIn Data Export Form */}
+        {activeSourceTab === "data_export" && (
+          <form onSubmit={handleExportSubmit}>
+            <div style={{ fontSize: "12px", color: "var(--hud-text-secondary)", marginBottom: "10px" }}>
+              Import your official LinkedIn data archive. Download your data from LinkedIn Settings &gt; Data Privacy &gt; Get a copy of your data (e.g. Saved Jobs.csv, Job Applications.csv, or full ZIP archive).
+            </div>
+            <div
+              style={{
+                border: "2px dashed rgba(0, 217, 255, 0.35)",
+                borderRadius: "8px",
+                padding: "20px",
+                textAlign: "center",
+                background: "rgba(0, 217, 255, 0.03)",
+                marginBottom: "14px",
+              }}
+            >
+              <div style={{ fontSize: "24px", marginBottom: "8px" }}>📦</div>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--hud-text-primary)", marginBottom: "4px" }}>
+                Select LinkedIn Export Archive (.zip or .csv)
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--hud-text-secondary)", marginBottom: "12px" }}>
+                Auto-extracts saved roles, applied positions, and attribution links.
+              </div>
+              <label className="jh-btn jh-btn-secondary" style={{ cursor: "pointer", display: "inline-block" }}>
+                {exportFile ? `File: ${exportFile.name}` : "Choose File (.zip / .csv)"}
+                <input
+                  type="file"
+                  accept=".zip,.csv"
+                  style={{ display: "none" }}
+                  onChange={(e) => setExportFile(e.target.files?.[0] || null)}
+                />
+              </label>
+            </div>
+            <button
+              type="submit"
+              className="jh-btn jh-btn-primary"
+              disabled={busy || !exportFile}
+            >
+              {busy ? "Importing Data Archive..." : "Import LinkedIn Archive"}
+            </button>
+          </form>
+        )}
+
+        {/* 4. Greenhouse Board Form */}
         {activeSourceTab === "greenhouse" && (
           <form onSubmit={handleGreenhouseSubmit}>
             <div style={{ fontSize: "12px", color: "var(--hud-text-secondary)", marginBottom: "10px" }}>

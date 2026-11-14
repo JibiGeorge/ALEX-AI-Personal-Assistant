@@ -6,9 +6,12 @@ Strictly adheres to policy: NO automated LinkedIn scraping or account activity.
 
 from __future__ import annotations
 
+import csv
+import io
 import logging
 import re
 import urllib.parse
+import zipfile
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -247,6 +250,128 @@ class LinkedInUrlJobAdapter(BaseJobSourceAdapter):
             content_hash=content_hash,
         )
         return [listing]
+
+
+class LinkedInDataExportAdapter(BaseJobSourceAdapter):
+    """
+    Parses user-uploaded official LinkedIn data exports (ZIP archive or CSV).
+    Extracts saved jobs, applied jobs, and normalized listings without any scraping.
+    """
+
+    @property
+    def source_name(self) -> JobSource:
+        return JobSource.LINKEDIN_URL
+
+    def check_availability(self) -> AdapterStatusReport:
+        return AdapterStatusReport(
+            adapter_name="LinkedIn Data Export Ingestion",
+            available=True,
+            description="Imports user-provided official LinkedIn archive files (Saved Jobs.csv, Job Applications.csv, or ZIP archive).",
+        )
+
+    def parse_csv_content(self, text: str, default_modality: WorkModality = WorkModality.REMOTE) -> List[JobListing]:
+        listings: List[JobListing] = []
+        try:
+            reader = csv.DictReader(io.StringIO(text))
+            for row in reader:
+                normalized_keys = {k.strip().lower(): v for k, v in row.items() if k}
+                title = (
+                    normalized_keys.get("job title")
+                    or normalized_keys.get("title")
+                    or normalized_keys.get("position")
+                    or ""
+                ).strip()
+                company = (
+                    normalized_keys.get("company name")
+                    or normalized_keys.get("company")
+                    or normalized_keys.get("employer")
+                    or "LinkedIn Opportunity"
+                ).strip()
+                url = (
+                    normalized_keys.get("job url")
+                    or normalized_keys.get("job link")
+                    or normalized_keys.get("url")
+                    or normalized_keys.get("link")
+                    or ""
+                ).strip()
+                loc = (
+                    normalized_keys.get("location")
+                    or normalized_keys.get("job location")
+                    or "Worldwide / Remote"
+                ).strip()
+                saved_date = (
+                    normalized_keys.get("date saved")
+                    or normalized_keys.get("application date")
+                    or normalized_keys.get("date")
+                    or None
+                )
+
+                if not title:
+                    continue
+
+                job_id = None
+                if url:
+                    view_match = re.search(r"/jobs/view/([0-9]+)", url)
+                    if view_match:
+                        job_id = view_match.group(1)
+
+                canonical_url = f"https://www.linkedin.com/jobs/view/{job_id}/" if job_id else (url or "https://www.linkedin.com/jobs/")
+                raw_desc = f"Exported LinkedIn opportunity: {title} at {company}. Location: {loc}."
+
+                c_hash = compute_job_content_hash(
+                    company_name=company,
+                    title=title,
+                    location=loc,
+                    external_id=job_id,
+                )
+
+                listings.append(
+                    JobListing(
+                        id=str(uuid4()),
+                        source=JobSource.LINKEDIN_URL,
+                        external_id=job_id,
+                        source_url=canonical_url,
+                        company_name=company,
+                        title=title,
+                        location=loc or "Worldwide / Remote",
+                        modality=default_modality,
+                        raw_description=raw_desc,
+                        cleaned_description=raw_desc,
+                        posted_at=saved_date,
+                        content_hash=c_hash,
+                    )
+                )
+        except Exception as exc:
+            logger.warning("Error parsing LinkedIn export CSV: %s", exc)
+
+        return listings
+
+    async def discover_or_ingest(self, **kwargs: Any) -> List[JobListing]:
+        file_bytes: Optional[bytes] = kwargs.get("file_bytes")
+        file_text: Optional[str] = kwargs.get("file_text")
+        filename: str = kwargs.get("filename", "").lower()
+        default_modality: WorkModality = kwargs.get("default_modality", WorkModality.REMOTE)
+
+        all_listings: List[JobListing] = []
+
+        if file_bytes and filename.endswith(".zip"):
+            try:
+                with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as z:
+                    for name in z.namelist():
+                        name_lower = name.lower()
+                        if "saved jobs" in name_lower or "job applications" in name_lower or (name_lower.endswith(".csv") and "job" in name_lower):
+                            with z.open(name) as f:
+                                text = f.read().decode("utf-8", errors="replace")
+                                all_listings.extend(self.parse_csv_content(text, default_modality))
+            except Exception as exc:
+                logger.warning("Failed to read LinkedIn ZIP export: %s", exc)
+        elif file_bytes:
+            text = file_bytes.decode("utf-8", errors="replace")
+            all_listings.extend(self.parse_csv_content(text, default_modality))
+        elif file_text:
+            all_listings.extend(self.parse_csv_content(file_text, default_modality))
+
+        return all_listings
 
 
 class WebSearchJobAdapter(BaseJobSourceAdapter):

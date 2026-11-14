@@ -28,11 +28,18 @@ from app.services.job_hunting.adapters import (
     GreenhouseJobAdapter,
     LeverJobAdapter,
     LinkedInAlertJobAdapter,
+    LinkedInDataExportAdapter,
     LinkedInUrlJobAdapter,
     RemoteOKJobAdapter,
     WebSearchJobAdapter,
 )
-from app.services.job_hunting.deduplication import compute_job_content_hash, normalize_text
+from app.services.job_hunting.deduplication import (
+    are_jobs_duplicate,
+    compute_job_content_hash,
+    extract_company_domain,
+    normalize_job_title,
+    normalize_text,
+)
 from app.services.job_hunting.discovery_service import JobDiscoveryService
 from app.services.job_hunting.profile_service import CandidateProfileService
 from app.services.job_hunting.scheduler import JobDiscoveryScheduler
@@ -539,3 +546,122 @@ def test_api_discovery_engine_endpoints(client: TestClient):
     )
     assert filtered_res.status_code == 200
     assert filtered_res.json()["total"] >= 1
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: Compliance & LinkedIn Data Export Ingestion Tests
+# ---------------------------------------------------------------------------
+
+def test_adapter_linkedin_data_export_csv():
+    async def _run():
+        adapter = LinkedInDataExportAdapter()
+        assert adapter.check_availability().available is True
+
+        csv_content = """Job Title,Company Name,Job Url,Saved Date
+Staff Frontend Engineer,Stripe,https://www.linkedin.com/jobs/view/9988776655/,2026-05-10
+Principal Systems Architect,Cloudflare,https://www.linkedin.com/jobs/view/1122334455/?refId=feed,2026-05-11
+"""
+        jobs = await adapter.discover_or_ingest(file_text=csv_content, filename="Saved Jobs.csv")
+        assert len(jobs) == 2
+
+        j1 = jobs[0]
+        assert j1.title == "Staff Frontend Engineer"
+        assert j1.company_name == "Stripe"
+        assert j1.external_id == "9988776655"
+        assert j1.source_url == "https://www.linkedin.com/jobs/view/9988776655/"
+        assert j1.source == JobSource.LINKEDIN_URL
+
+        j2 = jobs[1]
+        assert j2.title == "Principal Systems Architect"
+        assert j2.company_name == "Cloudflare"
+        assert j2.external_id == "1122334455"
+
+    asyncio.run(_run())
+
+
+def test_adapter_linkedin_data_export_zip():
+    import io
+    import zipfile
+
+    async def _run():
+        adapter = LinkedInDataExportAdapter()
+        zip_buf = io.BytesIO()
+        with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(
+                "Saved Jobs.csv",
+                "Job Title,Company Name,Job Url,Saved Date\nLead React Architect,Vercel,https://www.linkedin.com/jobs/view/3344556677/,2026-05-12\n",
+            )
+        zip_bytes = zip_buf.getvalue()
+
+        jobs = await adapter.discover_or_ingest(file_bytes=zip_bytes, filename="linkedin_archive.zip")
+        assert len(jobs) == 1
+        assert jobs[0].company_name == "Vercel"
+        assert jobs[0].title == "Lead React Architect"
+        assert jobs[0].external_id == "3344556677"
+
+    asyncio.run(_run())
+
+
+def test_cross_source_deduplication():
+    # 1. Title normalization (standardizes Sr. -> senior, removes parenthetical noise)
+    assert normalize_job_title("Senior Frontend Engineer (Remote)") == "senior frontend engineer"
+    assert normalize_job_title("Sr. Frontend Engineer") == "senior frontend engineer"
+    assert normalize_job_title("Staff Full Stack Developer - Hybrid") == "staff full stack developer"
+
+    # 2. Company domain normalization
+    assert extract_company_domain("Stripe, Inc.", "https://boards.greenhouse.io/stripe/jobs/123") == "stripe"
+    assert extract_company_domain("Vercel Technologies", "https://jobs.lever.co/vercel/abc-123") == "vercel"
+
+    # 3. Cross-source duplicate detection
+    job_gh = JobListing(
+        id="gh-1",
+        title="Senior Frontend Engineer (Remote)",
+        company_name="Stripe",
+        location="Remote",
+        source=JobSource.GREENHOUSE,
+        source_url="https://boards.greenhouse.io/stripe/jobs/123",
+        external_id="gh-123",
+        raw_description="Build modern checkout interfaces at scale.",
+        content_hash=compute_job_content_hash("Stripe", "Senior Frontend Engineer (Remote)", "Remote", "gh-123"),
+    )
+    job_li = JobListing(
+        id="li-1",
+        title="Sr. Frontend Engineer",
+        company_name="Stripe, Inc.",
+        location="Remote",
+        source=JobSource.LINKEDIN_ALERT,
+        source_url="https://www.linkedin.com/jobs/view/456",
+        external_id="456",
+        raw_description="Different description from exported alert snippet.",
+        content_hash=compute_job_content_hash("Stripe, Inc.", "Sr. Frontend Engineer", "Remote", "456"),
+    )
+    assert are_jobs_duplicate(job_gh, job_li) is True
+
+    # Non-duplicate: different company
+    job_other = JobListing(
+        id="oth-1",
+        title="Senior Frontend Engineer",
+        company_name="Datadog",
+        location="Remote",
+        source=JobSource.LEVER,
+        source_url="https://jobs.lever.co/datadog/789",
+        external_id="789",
+        raw_description="Datadog role description.",
+        content_hash=compute_job_content_hash("Datadog", "Senior Frontend Engineer", "Remote", "789"),
+    )
+    assert are_jobs_duplicate(job_gh, job_other) is False
+
+
+def test_api_linkedin_data_export(client: TestClient):
+    csv_bytes = b"Job Title,Company Name,Job Url,Saved Date\nPlatform Engineer,GitHub,https://www.linkedin.com/jobs/view/7788990011/,2026-05-13\n"
+    res = client.post(
+        "/api/job-hunting/ingest/linkedin-data-export",
+        files={"file": ("Saved Jobs.csv", csv_bytes, "text/csv")},
+        headers=auth_headers(),
+    )
+    assert res.status_code == 200, res.text
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["company_name"] == "GitHub"
+    assert data[0]["title"] == "Platform Engineer"
+

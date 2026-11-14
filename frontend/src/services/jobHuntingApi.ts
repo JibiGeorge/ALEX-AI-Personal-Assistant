@@ -108,6 +108,24 @@ export const jobHuntingApi = {
       modality,
     }),
 
+  ingestLinkedInDataExport: async (file: File): Promise<JobListing[]> => {
+    let payload: { filename: string; raw_text?: string; content_base64?: string };
+    if (file.name.endsWith(".csv")) {
+      const text = await file.text();
+      payload = { filename: file.name, raw_text: text };
+    } else {
+      const buffer = await file.arrayBuffer();
+      let binary = "";
+      const bytes = new Uint8Array(buffer);
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const b64 = btoa(binary);
+      payload = { filename: file.name, content_base64: b64 };
+    }
+    return request<JobListing[]>("POST", "/api/job-hunting/ingest/linkedin-data-export", payload);
+  },
+
   ingestDirectUrl: (
     url: string,
     title?: string,

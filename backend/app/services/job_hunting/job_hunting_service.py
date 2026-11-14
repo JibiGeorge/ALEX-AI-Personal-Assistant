@@ -169,6 +169,20 @@ class JobHuntingService:
             modality=modality,
         )
 
+    async def ingest_linkedin_data_export(
+        self,
+        file_bytes: Optional[bytes] = None,
+        file_text: Optional[str] = None,
+        filename: str = "export.csv",
+        default_modality: WorkModality = WorkModality.REMOTE,
+    ) -> List[JobListing]:
+        return await self.discovery_service.ingest_linkedin_data_export(
+            file_bytes=file_bytes,
+            file_text=file_text,
+            filename=filename,
+            default_modality=default_modality,
+        )
+
     async def ingest_direct_url(
         self,
         url: str,

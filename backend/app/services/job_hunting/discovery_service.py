@@ -30,6 +30,7 @@ from app.services.job_hunting.adapters import (
     GreenhouseJobAdapter,
     LeverJobAdapter,
     LinkedInAlertJobAdapter,
+    LinkedInDataExportAdapter,
     LinkedInUrlJobAdapter,
     RemoteOKJobAdapter,
     WebSearchJobAdapter,
@@ -195,6 +196,32 @@ class JobDiscoveryService:
         if existing:
             return existing
         return self.storage.save_job(job)
+
+    async def ingest_linkedin_data_export(
+        self,
+        file_bytes: Optional[bytes] = None,
+        file_text: Optional[str] = None,
+        filename: str = "export.csv",
+        default_modality: WorkModality = WorkModality.REMOTE,
+    ) -> List[JobListing]:
+        """Parses and stores job listings from an official LinkedIn ZIP or CSV data export."""
+        adapter = LinkedInDataExportAdapter()
+        extracted = await adapter.discover_or_ingest(
+            file_bytes=file_bytes,
+            file_text=file_text,
+            filename=filename,
+            default_modality=default_modality,
+        )
+
+        stored: List[JobListing] = []
+        for job in extracted:
+            existing = self.storage.get_job_by_hash(job.content_hash)
+            if existing:
+                stored.append(existing)
+            else:
+                saved = self.storage.save_job(job)
+                stored.append(saved)
+        return stored
 
     async def ingest_greenhouse(
         self,

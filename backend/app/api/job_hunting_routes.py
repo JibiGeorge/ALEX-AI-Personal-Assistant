@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi import APIRouter, Form, HTTPException, Query, Request, Response, status
 
 from app.schemas.job_hunting import (
     AdapterStatusReport,
@@ -188,6 +188,62 @@ async def ingest_linkedin_url(payload: IngestLinkedInUrlRequest, request: Reques
         optional_company=payload.optional_company,
         optional_snippet=payload.optional_snippet,
         modality=payload.modality,
+    )
+
+
+async def _parse_export_upload_bytes(request: Request) -> tuple[str, bytes]:
+    content_type = request.headers.get("content-type", "")
+    explicit_filename = request.headers.get("x-filename") or request.query_params.get("filename")
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Empty upload body")
+
+    if "multipart/form-data" in content_type:
+        import re
+        match = re.search(r"boundary=([^;]+)", content_type)
+        if match:
+            boundary = match.group(1).strip("\"'").encode("utf-8")
+            parts = body.split(b"--" + boundary)
+            for part in parts:
+                if b"Content-Disposition" in part:
+                    header_part, _, data = part.partition(b"\r\n\r\n")
+                    if data.endswith(b"\r\n"):
+                        data = data[:-2]
+                    elif data.endswith(b"--\r\n"):
+                        data = data[:-4]
+                    elif data.endswith(b"--"):
+                        data = data[:-2]
+                    header_str = header_part.decode("utf-8", errors="ignore")
+                    fn_match = re.search(r'filename="([^"]+)"', header_str)
+                    filename = fn_match.group(1) if fn_match else (explicit_filename or "export.csv")
+                    return filename, data
+
+    if "application/json" in content_type:
+        import json
+        import base64
+        try:
+            payload = json.loads(body.decode("utf-8"))
+            filename = payload.get("filename") or explicit_filename or "export.csv"
+            if "raw_text" in payload:
+                return filename, payload["raw_text"].encode("utf-8")
+            if "content_base64" in payload:
+                return filename, base64.b64decode(payload["content_base64"])
+        except Exception:
+            pass
+
+    filename = explicit_filename or "export.csv"
+    return filename, body
+
+
+@router.post("/ingest/linkedin-data-export", response_model=List[JobListing])
+async def ingest_linkedin_data_export(
+    request: Request,
+):
+    service = get_job_hunting_service(request)
+    filename, file_bytes = await _parse_export_upload_bytes(request)
+    return await service.ingest_linkedin_data_export(
+        file_bytes=file_bytes,
+        filename=filename,
     )
 
 
