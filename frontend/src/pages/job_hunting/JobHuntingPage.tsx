@@ -114,14 +114,19 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
           setSelectedJobId(jobsRes.jobs[0].id);
         }
 
-        // Fetch scores for known jobs
+        // Fetch scores for known jobs and auto-score unscored jobs
         const scoreEntries: Record<string, CompatibilityScore> = {};
-        for (const j of jobsRes.jobs.slice(0, 20)) {
+        for (const j of jobsRes.jobs.slice(0, 30)) {
           try {
             const sc = await jobHuntingApi.getScore(j.id);
             scoreEntries[j.id] = sc;
           } catch {
-            // No score yet
+            // Auto-calculate score in background if not yet cached
+            jobHuntingApi.calculateMatch(j.id).then((sc) => {
+              if (sc && active) {
+                setScores((prev) => ({ ...prev, [j.id]: sc }));
+              }
+            }).catch(() => {});
           }
         }
         if (active) {
@@ -144,6 +149,17 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
   const selectedJob = jobs.find((j) => j.id === selectedJobId) || jobs[0] || null;
   const selectedScore = selectedJob ? scores[selectedJob.id] || null : null;
 
+  function autoScoreJob(jobId: string) {
+    jobHuntingApi
+      .calculateMatch(jobId)
+      .then((sc) => {
+        if (sc) {
+          setScores((prev) => ({ ...prev, [jobId]: sc }));
+        }
+      })
+      .catch(() => {});
+  }
+
   // Handlers
   async function handleQuickIngestUrl(url: string) {
     try {
@@ -156,6 +172,7 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
       }
       setJobs((prev) => [newJob, ...prev]);
       setSelectedJobId(newJob.id);
+      autoScoreJob(newJob.id);
       showNotice("success", `Ingested job: ${newJob.title} @ ${newJob.company_name}`);
       onActivity?.("ALEX", `Extracted ${newJob.title} at ${newJob.company_name}. Ready for match scoring.`);
     } catch (err: any) {
@@ -169,6 +186,7 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
       const newJob = await jobHuntingApi.ingestLinkedInUrl(url, title, company, modality);
       setJobs((prev) => [newJob, ...prev]);
       setSelectedJobId(newJob.id);
+      autoScoreJob(newJob.id);
       showNotice("success", `Ingested LinkedIn job: ${newJob.title} @ ${newJob.company_name}`);
     } catch (err: any) {
       showNotice("error", `LinkedIn URL ingestion failed: ${err.message}`);
@@ -180,7 +198,10 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
     try {
       const ingested = await jobHuntingApi.ingestLinkedInAlert(alertText);
       setJobs((prev) => [...ingested, ...prev]);
-      if (ingested.length > 0) setSelectedJobId(ingested[0].id);
+      if (ingested.length > 0) {
+        setSelectedJobId(ingested[0].id);
+        ingested.forEach((j) => autoScoreJob(j.id));
+      }
       showNotice("success", `Extracted and ingested ${ingested.length} jobs from LinkedIn alert.`);
     } catch (err: any) {
       showNotice("error", `Alert parsing failed: ${err.message}`);
@@ -193,7 +214,10 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
       onActivity?.("ALEX", `Searching Greenhouse board '${boardToken}' for vacancies...`);
       const ingested = await jobHuntingApi.ingestGreenhouse(boardToken, filterRole);
       setJobs((prev) => [...ingested, ...prev]);
-      if (ingested.length > 0) setSelectedJobId(ingested[0].id);
+      if (ingested.length > 0) {
+        setSelectedJobId(ingested[0].id);
+        ingested.forEach((j) => autoScoreJob(j.id));
+      }
       showNotice("success", `Ingested ${ingested.length} jobs from Greenhouse (${boardToken}).`);
       onActivity?.("ALEX", `Discovered ${ingested.length} vacancies on Greenhouse (${boardToken}).`);
     } catch (err: any) {
@@ -207,7 +231,10 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
       onActivity?.("ALEX", `Searching Lever board '${siteName}' for vacancies...`);
       const ingested = await jobHuntingApi.ingestLever(siteName, filterRole);
       setJobs((prev) => [...ingested, ...prev]);
-      if (ingested.length > 0) setSelectedJobId(ingested[0].id);
+      if (ingested.length > 0) {
+        setSelectedJobId(ingested[0].id);
+        ingested.forEach((j) => autoScoreJob(j.id));
+      }
       showNotice("success", `Ingested ${ingested.length} jobs from Lever (${siteName}).`);
       onActivity?.("ALEX", `Discovered ${ingested.length} vacancies on Lever (${siteName}).`);
     } catch (err: any) {
@@ -221,6 +248,7 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
       const newJob = await jobHuntingApi.ingestDirectUrl(url, title, company, rawText, modality);
       setJobs((prev) => [newJob, ...prev]);
       setSelectedJobId(newJob.id);
+      autoScoreJob(newJob.id);
       showNotice("success", `Ingested URL job: ${newJob.title} @ ${newJob.company_name}`);
     } catch (err: any) {
       showNotice("error", `URL ingestion failed: ${err.message}`);
@@ -237,7 +265,10 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
         const newOnes = discovered.filter((j) => !existingIds.has(j.id));
         return [...newOnes, ...prev];
       });
-      if (discovered.length > 0) setSelectedJobId(discovered[0].id);
+      if (discovered.length > 0) {
+        setSelectedJobId(discovered[0].id);
+        discovered.forEach((j) => autoScoreJob(j.id));
+      }
       showNotice("success", `Discovery completed: ${discovered.length} jobs retrieved.`);
       onActivity?.("ALEX", `Multi-platform search returned ${discovered.length} matching vacancy listings.`);
     } catch (err: any) {
@@ -363,174 +394,151 @@ export function JobHuntingPage({ onError, onOpenSettings: _onOpenSettings, onAct
     ["tailored", "ready_to_apply", "applied", "interviewing"].includes(a.status),
   ).length;
 
-  const currentCategory = ["dashboard", "discover", "map", "recommended"].includes(activeTab)
-    ? "radar"
-    : ["details", "analysis", "compare"].includes(activeTab)
-    ? "eval"
-    : ["resume", "cover_letter"].includes(activeTab)
-    ? "studio"
-    : ["approvals", "applications", "interview"].includes(activeTab)
-    ? "pipeline"
-    : "config";
-
   return (
     <div className="job-hunting-root jh-shell">
-      {/* Category Quick-Navigation Ribbon */}
-      <div className="jh-category-strip">
-        <span className="jh-category-label">SECTIONS:</span>
-        <button
-          type="button"
-          className={`jh-category-pill ${currentCategory === "radar" ? "active" : ""}`}
-          onClick={() => navigateTab("dashboard")}
-        >
-          RADAR
-        </button>
-        <button
-          type="button"
-          className={`jh-category-pill ${currentCategory === "eval" ? "active" : ""}`}
-          onClick={() => navigateTab("details")}
-        >
-          EVALUATION
-        </button>
-        <button
-          type="button"
-          className={`jh-category-pill ${currentCategory === "studio" ? "active" : ""}`}
-          onClick={() => navigateTab("resume")}
-        >
-          STUDIO
-        </button>
-        <button
-          type="button"
-          className={`jh-category-pill ${currentCategory === "pipeline" ? "active" : ""}`}
-          onClick={() => navigateTab(pendingApprovalsCount > 0 ? "approvals" : "applications")}
-        >
-          PIPELINE {pendingApprovalsCount > 0 ? `(${pendingApprovalsCount} Alert)` : ""}
-        </button>
-        <button
-          type="button"
-          className={`jh-category-pill ${currentCategory === "config" ? "active" : ""}`}
-          onClick={() => navigateTab("settings")}
-        >
-          CONFIG
-        </button>
-      </div>
+      {/* Single Unified Workflow Navigation Bar (Discover -> Review -> Tailor -> Apply -> Track + Settings) */}
+      <nav className="jh-subnav jh-nav-bar job-nav-bar jh-workflow-nav" aria-label="Job hunting workflow navigation">
+        <div className="jh-nav-workflow-group">
+          <span className="jh-workflow-step-tag">1. DISCOVER</span>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "dashboard" ? "active" : ""}`}
+            onClick={() => navigateTab("dashboard")}
+          >
+            <span className="jh-tab-icon">⚡</span> Dashboard
+          </button>
 
-      {/* Sub-Navigation Tabs */}
-      <div className="jh-subnav jh-nav-bar job-nav-bar" aria-label="Job hunting sub-navigation">
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "dashboard" ? "active" : ""}`}
-          onClick={() => navigateTab("dashboard")}
-        >
-          <span className="jh-tab-icon">⚡</span> Dashboard
-        </button>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "discover" ? "active" : ""}`}
+            onClick={() => navigateTab("discover")}
+          >
+            <span className="jh-tab-icon">🔍</span> Discover Jobs
+          </button>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "discover" ? "active" : ""}`}
-          onClick={() => navigateTab("discover")}
-        >
-          <span className="jh-tab-icon">🔍</span> Discover Jobs
-        </button>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "map" ? "active" : ""}`}
+            onClick={() => navigateTab("map")}
+          >
+            <span className="jh-tab-icon">🌐</span> Location Map
+          </button>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "map" ? "active" : ""}`}
-          onClick={() => navigateTab("map")}
-        >
-          <span className="jh-tab-icon">🌐</span> Location Map
-        </button>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "recommended" ? "active" : ""}`}
+            onClick={() => navigateTab("recommended")}
+          >
+            <span className="jh-tab-icon">🎯</span> Recommended
+          </button>
+        </div>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "recommended" ? "active" : ""}`}
-          onClick={() => navigateTab("recommended")}
-        >
-          <span className="jh-tab-icon">🎯</span> Recommended
-        </button>
+        <div className="jh-nav-divider" />
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "details" ? "active" : ""}`}
-          onClick={() => navigateTab("details")}
-        >
-          <span className="jh-tab-icon">📋</span> Job Details
-        </button>
+        <div className="jh-nav-workflow-group">
+          <span className="jh-workflow-step-tag">2. REVIEW</span>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "details" ? "active" : ""}`}
+            onClick={() => navigateTab("details")}
+          >
+            <span className="jh-tab-icon">📋</span> Job Details
+          </button>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "analysis" ? "active" : ""}`}
-          onClick={() => navigateTab("analysis")}
-        >
-          <span className="jh-tab-icon">⚖️</span> AI Match Analysis
-        </button>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "analysis" ? "active" : ""}`}
+            onClick={() => navigateTab("analysis")}
+          >
+            <span className="jh-tab-icon">⚖️</span> AI Match Analysis
+          </button>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "compare" ? "active" : ""}`}
-          onClick={() => navigateTab("compare")}
-        >
-          <span className="jh-tab-icon">⚖️</span> Compare Roles
-        </button>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "compare" ? "active" : ""}`}
+            onClick={() => navigateTab("compare")}
+          >
+            <span className="jh-tab-icon">⚖️</span> Compare Roles
+          </button>
+        </div>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "resume" ? "active" : ""}`}
-          onClick={() => navigateTab("resume")}
-        >
-          <span className="jh-tab-icon">📝</span> Resume Studio
-        </button>
+        <div className="jh-nav-divider" />
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "cover_letter" ? "active" : ""}`}
-          onClick={() => navigateTab("cover_letter")}
-        >
-          <span className="jh-tab-icon">✉️</span> Cover Letter
-        </button>
+        <div className="jh-nav-workflow-group">
+          <span className="jh-workflow-step-tag">3. TAILOR</span>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "resume" ? "active" : ""}`}
+            onClick={() => navigateTab("resume")}
+          >
+            <span className="jh-tab-icon">📝</span> Resume Studio
+          </button>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "approvals" ? "active" : ""}`}
-          onClick={() => navigateTab("approvals")}
-        >
-          <span className="jh-tab-icon">🛡️</span> Approvals
-          {pendingApprovalsCount > 0 && (
-            <span className="jh-badge-count jh-badge-alert">
-              {pendingApprovalsCount}
-            </span>
-          )}
-        </button>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "cover_letter" ? "active" : ""}`}
+            onClick={() => navigateTab("cover_letter")}
+          >
+            <span className="jh-tab-icon">✉️</span> Cover Letter
+          </button>
+        </div>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "applications" ? "active" : ""}`}
-          onClick={() => navigateTab("applications")}
-        >
-          <span className="jh-tab-icon">📊</span> Applications
-          {activeApplicationsCount > 0 && (
-            <span className="jh-badge-count">
-              {activeApplicationsCount}
-            </span>
-          )}
-        </button>
+        <div className="jh-nav-divider" />
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "interview" ? "active" : ""}`}
-          onClick={() => navigateTab("interview")}
-        >
-          <span className="jh-tab-icon">🗓️</span> Interviews
-        </button>
+        <div className="jh-nav-workflow-group">
+          <span className="jh-workflow-step-tag">4. APPLY</span>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "approvals" ? "active" : ""}`}
+            onClick={() => navigateTab("approvals")}
+          >
+            <span className="jh-tab-icon">🛡️</span> Approvals
+            {pendingApprovalsCount > 0 && (
+              <span className="jh-badge-count jh-badge-alert">
+                {pendingApprovalsCount}
+              </span>
+            )}
+          </button>
+        </div>
 
-        <button
-          type="button"
-          className={`jh-subnav-btn jh-nav-item ${activeTab === "settings" ? "active" : ""}`}
-          onClick={() => navigateTab("settings")}
-        >
-          <span className="jh-tab-icon">⚙️</span> Settings
-        </button>
-      </div>
+        <div className="jh-nav-divider" />
+
+        <div className="jh-nav-workflow-group">
+          <span className="jh-workflow-step-tag">5. TRACK</span>
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "applications" ? "active" : ""}`}
+            onClick={() => navigateTab("applications")}
+          >
+            <span className="jh-tab-icon">📊</span> Applications
+            {activeApplicationsCount > 0 && (
+              <span className="jh-badge-count">
+                {activeApplicationsCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "interview" ? "active" : ""}`}
+            onClick={() => navigateTab("interview")}
+          >
+            <span className="jh-tab-icon">🗓️</span> Interviews
+          </button>
+        </div>
+
+        <div className="jh-nav-divider" />
+
+        <div className="jh-nav-workflow-group">
+          <button
+            type="button"
+            className={`jh-subnav-btn jh-nav-item ${activeTab === "settings" ? "active" : ""}`}
+            onClick={() => navigateTab("settings")}
+          >
+            <span className="jh-tab-icon">⚙️</span> Settings
+          </button>
+        </div>
+      </nav>
 
       {/* Active Target Job Context Bar */}
       {selectedJob && (

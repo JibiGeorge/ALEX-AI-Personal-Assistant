@@ -99,10 +99,18 @@ export function PendingApprovalsView({
                             : "jh-badge-low"
                         }`}
                       >
-                        {approval.approval_status.toUpperCase()}
+                        {isPending
+                          ? "Requires your review"
+                          : isApproved
+                          ? approval.decided_at
+                            ? `Submitted on ${new Date(approval.decided_at).toLocaleDateString()}`
+                            : "Ready to submit"
+                          : "Action aborted"}
                       </span>
                       <span className="jh-badge jh-badge-source">
-                        {approval.requested_action.replace(/_/g, " ").toUpperCase()}
+                        {approval.requested_action === "submit_application"
+                          ? "Ready to submit"
+                          : approval.requested_action.replace(/_/g, " ").toUpperCase()}
                       </span>
                     </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   ApplicationApproval,
   CompatibilityScore,
@@ -35,15 +35,102 @@ export function DashboardView({
   const [quickUrl, setQuickUrl] = useState("");
   const [ingesting, setIngesting] = useState(false);
   const [listSearch, setListSearch] = useState("");
+  const [remoteOnly, setRemoteOnly] = useState(false);
+  const [seniorityFilter, setSeniorityFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [minMatchFilter, setMinMatchFilter] = useState<number>(0);
+  const [sortBy, setSortBy] = useState<"newest" | "match" | "company">("match");
+  const [selectedPreviewId, setSelectedPreviewId] = useState<string | null>(
+    jobs.length > 0 ? jobs[0].id : null,
+  );
 
+  // Stats calculations
   const highMatchCount = Object.values(scores).filter((s) => s.match_percentage >= 80).length;
   const excellentMatchCount = Object.values(scores).filter((s) => s.match_percentage >= 85).length;
-  const goodMatchCount = Object.values(scores).filter((s) => s.match_percentage >= 70 && s.match_percentage < 85).length;
-  const remoteJobsCount = jobs.filter((j) => j.modality === "remote").length;
   const pendingApprovalsCount = approvals.filter((a) => a.approval_status === "pending").length;
   const activeApplicationsCount = applications.filter((a) =>
-    !["rejected", "withdrawn", "archived"].includes(a.status)
+    !["rejected", "withdrawn", "archived"].includes(a.status),
   ).length;
+
+  const interviewsCount = applications.reduce(
+    (acc, a) => acc + (a.interview_rounds?.length || 0),
+    0,
+  );
+
+  const responseRate = useMemo(() => {
+    if (applications.length === 0) return 0;
+    const responded = applications.filter((a) =>
+      ["interviewing", "offered", "rejected"].includes(a.status),
+    ).length;
+    return Math.round((responded / applications.length) * 100);
+  }, [applications]);
+
+  const newTodayCount = useMemo(() => {
+    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const count = jobs.filter(
+      (j) => new Date(j.discovered_at).getTime() > oneDayAgo,
+    ).length;
+    return count > 0 ? count : jobs.length;
+  }, [jobs]);
+
+  // Duplicate detection across sources
+  const duplicateSet = useMemo(() => {
+    const seen = new Map<string, string>();
+    const dupes = new Set<string>();
+    jobs.forEach((j) => {
+      const key = `${j.company_name.toLowerCase().trim()}::${j.title.toLowerCase().trim()}`;
+      if (seen.has(key)) {
+        dupes.add(j.id);
+      } else {
+        seen.set(key, j.id);
+      }
+    });
+    return dupes;
+  }, [jobs]);
+
+  // Filtering & Sorting
+  const filteredJobs = useMemo(() => {
+    return jobs
+      .filter((j) => {
+        if (remoteOnly && j.modality !== "remote") return false;
+        if (sourceFilter !== "all" && j.source !== sourceFilter) return false;
+
+        const score = scores[j.id]?.match_percentage || 0;
+        if (minMatchFilter > 0 && score < minMatchFilter) return false;
+
+        if (seniorityFilter !== "all") {
+          const title = j.title.toLowerCase();
+          if (seniorityFilter === "senior" && !title.includes("senior") && !title.includes("sr")) return false;
+          if (seniorityFilter === "lead" && !title.includes("lead") && !title.includes("staff") && !title.includes("principal")) return false;
+          if (seniorityFilter === "mid" && (title.includes("senior") || title.includes("junior") || title.includes("lead"))) return false;
+        }
+
+        if (listSearch.trim()) {
+          const q = listSearch.toLowerCase();
+          const matchTitle = j.title.toLowerCase().includes(q);
+          const matchComp = j.company_name.toLowerCase().includes(q);
+          const matchLoc = (j.location || "").toLowerCase().includes(q);
+          const matchSkill = j.required_skills?.some((s) => s.toLowerCase().includes(q));
+          if (!matchTitle && !matchComp && !matchLoc && !matchSkill) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === "match") {
+          const scoreA = scores[a.id]?.match_percentage || 0;
+          const scoreB = scores[b.id]?.match_percentage || 0;
+          return scoreB - scoreA;
+        }
+        if (sortBy === "company") {
+          return a.company_name.localeCompare(b.company_name);
+        }
+        return new Date(b.discovered_at).getTime() - new Date(a.discovered_at).getTime();
+      });
+  }, [jobs, scores, remoteOnly, sourceFilter, minMatchFilter, seniorityFilter, listSearch, sortBy]);
+
+  const activePreviewJob = jobs.find((j) => j.id === selectedPreviewId) || filteredJobs[0] || null;
+  const activePreviewScore = activePreviewJob ? scores[activePreviewJob.id] : null;
 
   async function handleQuickIngest(e: React.FormEvent) {
     e.preventDefault();
@@ -66,23 +153,12 @@ export function DashboardView({
         }
       }
     } catch {
-      // Clipboard access denied or unavailable
+      // Clipboard access denied
     }
   }
 
-  const displayedJobs = jobs.filter((j) => {
-    if (!listSearch.trim()) return true;
-    const q = listSearch.toLowerCase();
-    return (
-      j.title.toLowerCase().includes(q) ||
-      j.company_name.toLowerCase().includes(q) ||
-      j.location.toLowerCase().includes(q) ||
-      j.required_skills.some((s) => s.toLowerCase().includes(q))
-    );
-  });
-
   return (
-    <div>
+    <div className="jh-dashboard-container">
       {/* Header */}
       <div className="jh-header">
         <div className="jh-header-titles">
@@ -97,50 +173,61 @@ export function DashboardView({
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="jh-stats-grid">
+      {/* 5 Replaced Stat Cards */}
+      <div className="jh-stats-grid jh-stats-grid-5">
         <div className="jh-stat-card" onClick={() => onNavigateTab("discover")} style={{ cursor: "pointer" }}>
           <div className="jh-stat-label">
-            <span>Total Jobs Discovered</span>
-            <span style={{ fontSize: "14px" }}>🌐</span>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontWeight: 700, color: "var(--hud-accent)" }}>New today</span>
+              <span style={{ fontSize: "10.5px", color: "var(--hud-text-secondary)" }}>Total Jobs Discovered</span>
+            </div>
+            <span style={{ fontSize: "14px" }}>⚡</span>
           </div>
-          <div className="jh-stat-value">{jobs.length}</div>
-          <div className="jh-stat-hint">{remoteJobsCount} remote · Explore →</div>
+          <div className="jh-stat-value">{newTodayCount}</div>
+          <div className="jh-stat-hint">{jobs.length} total across sources · Explore →</div>
         </div>
 
         <div className="jh-stat-card jh-stat-card-success" onClick={() => onNavigateTab("recommended")} style={{ cursor: "pointer" }}>
           <div className="jh-stat-label">
-            <span>High Match (≥80%)</span>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontWeight: 700, color: "var(--hud-success)" }}>To review</span>
+              <span style={{ fontSize: "10.5px", color: "var(--hud-text-secondary)" }}>High Match (≥80%)</span>
+            </div>
             <span style={{ fontSize: "14px" }}>🎯</span>
           </div>
           <div className="jh-stat-value" style={{ color: "var(--hud-success)" }}>{highMatchCount}</div>
-          <div className="jh-stat-hint">{excellentMatchCount} excellent (≥85%), {goodMatchCount} good · View →</div>
+          <div className="jh-stat-hint">{excellentMatchCount} excellent (≥85%) · View →</div>
         </div>
 
-        <div className="jh-stat-card jh-stat-card-purple" onClick={() => onNavigateTab("map")} style={{ cursor: "pointer" }}>
+        <div className="jh-stat-card" onClick={() => onNavigateTab("applications")} style={{ cursor: "pointer" }}>
           <div className="jh-stat-label">
-            <span>Geographic Hubs</span>
-            <span style={{ fontSize: "14px" }}>🗺️</span>
+            <span>Applications in progress</span>
+            <span style={{ fontSize: "14px" }}>📊</span>
           </div>
-          <div className="jh-stat-value" style={{ color: "var(--hud-accent)" }}>
-            {new Set(jobs.filter((j) => j.city).map((j) => j.city)).size || "Global"}
-          </div>
-          <div className="jh-stat-hint">Interactive Location Radar · Map →</div>
+          <div className="jh-stat-value" style={{ color: "var(--hud-accent)" }}>{activeApplicationsCount}</div>
+          <div className="jh-stat-hint">{pendingApprovalsCount} await authorization →</div>
         </div>
 
-        <div className="jh-stat-card jh-stat-card-warning" onClick={() => onNavigateTab("approvals")} style={{ cursor: "pointer" }}>
+        <div className="jh-stat-card" onClick={() => onNavigateTab("interview")} style={{ cursor: "pointer" }}>
           <div className="jh-stat-label">
-            <span>Pending Approvals</span>
-            <span style={{ fontSize: "14px" }}>🛡️</span>
+            <span>Interviews</span>
+            <span style={{ fontSize: "14px" }}>🗓️</span>
           </div>
-          <div className="jh-stat-value" style={{ color: pendingApprovalsCount > 0 ? "var(--hud-warning)" : "var(--hud-text-secondary)" }}>
-            {pendingApprovalsCount}
+          <div className="jh-stat-value" style={{ color: "#a855f7" }}>{interviewsCount}</div>
+          <div className="jh-stat-hint">Scheduled technical rounds →</div>
+        </div>
+
+        <div className="jh-stat-card jh-stat-card-teal" onClick={() => onNavigateTab("applications")} style={{ cursor: "pointer" }}>
+          <div className="jh-stat-label">
+            <span>Response rate</span>
+            <span style={{ fontSize: "14px" }}>📈</span>
           </div>
-          <div className="jh-stat-hint">{activeApplicationsCount} in tracker · {pendingApprovalsCount} await review →</div>
+          <div className="jh-stat-value" style={{ color: "var(--hud-teal, #00e5ff)" }}>{responseRate}%</div>
+          <div className="jh-stat-hint">Pipeline progression velocity →</div>
         </div>
       </div>
 
-      {/* Cybernetic Quick Radar Action Buttons */}
+      {/* Cybernetic Workflow Action Buttons */}
       <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", marginBottom: "1.2rem" }}>
         <button
           type="button"
@@ -176,7 +263,7 @@ export function DashboardView({
         </button>
       </div>
 
-      {/* Quick Ingest Bar */}
+      {/* Rapid Opportunity Ingestion */}
       <div className="jh-card" style={{ marginBottom: "20px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px", flexWrap: "wrap", gap: "6px" }}>
           <div style={{ fontFamily: "var(--hud-font-mono)", fontSize: "12px", color: "var(--hud-accent)", fontWeight: 700 }}>
@@ -223,146 +310,323 @@ export function DashboardView({
         </form>
       </div>
 
-      {/* Recent Discovered Jobs */}
-      <div className="jh-card">
+      {/* Two-Pane Opportunity Explorer */}
+      <div className="jh-card" style={{ padding: "16px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div style={{ fontFamily: "var(--hud-font-mono)", fontSize: "13px", fontWeight: 700 }}>
-              RECENT DISCOVERED OPPORTUNITIES ({displayedJobs.slice(0, 10).length} of {jobs.length})
+              OPPORTUNITY RADAR ({filteredJobs.length} of {jobs.length})
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+
+          {/* Filters Bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
             <input
               type="text"
               className="jh-input"
-              style={{ padding: "4px 8px", fontSize: "11px", width: "180px" }}
-              placeholder="Filter by title / company..."
+              style={{ padding: "4px 8px", fontSize: "11px", width: "160px" }}
+              placeholder="Filter title / skill..."
               value={listSearch}
               onChange={(e) => setListSearch(e.target.value)}
             />
-            <button type="button" className="jh-btn jh-btn-secondary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={() => onNavigateTab("discover")}>
-              View All Jobs
-            </button>
+            <label style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", color: "var(--hud-text-secondary)", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={remoteOnly}
+                onChange={(e) => setRemoteOnly(e.target.checked)}
+              />
+              Remote Only
+            </label>
+            <select
+              className="jh-input"
+              style={{ padding: "4px 6px", fontSize: "11px", width: "auto" }}
+              value={seniorityFilter}
+              onChange={(e) => setSeniorityFilter(e.target.value)}
+            >
+              <option value="all">All Seniority</option>
+              <option value="mid">Mid-Level</option>
+              <option value="senior">Senior</option>
+              <option value="lead">Lead / Staff</option>
+            </select>
+            <select
+              className="jh-input"
+              style={{ padding: "4px 6px", fontSize: "11px", width: "auto" }}
+              value={minMatchFilter}
+              onChange={(e) => setMinMatchFilter(Number(e.target.value))}
+            >
+              <option value="0">All Matches</option>
+              <option value="70">≥ 70% Match</option>
+              <option value="80">≥ 80% Match</option>
+              <option value="90">≥ 90% Match</option>
+            </select>
+            <select
+              className="jh-input"
+              style={{ padding: "4px 6px", fontSize: "11px", width: "auto" }}
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+            >
+              <option value="all">All Sources</option>
+              <option value="greenhouse">Greenhouse</option>
+              <option value="lever">Lever</option>
+              <option value="linkedin_link">LinkedIn</option>
+              <option value="direct_url">Direct URL</option>
+            </select>
+            <select
+              className="jh-input"
+              style={{ padding: "4px 6px", fontSize: "11px", width: "auto" }}
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+            >
+              <option value="match">Sort: Match %</option>
+              <option value="newest">Sort: Newest</option>
+              <option value="company">Sort: Company</option>
+            </select>
           </div>
         </div>
 
         {jobs.length === 0 ? (
-          <div style={{ padding: "30px 10px", textAlign: "center", color: "var(--hud-text-muted)" }}>
-            No job opportunities discovered yet. Use Rapid Ingestion above or trigger an autonomous discovery run.
+          <div className="jh-empty-state" style={{ padding: "3rem 1rem", textAlign: "center" }}>
+            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📡</div>
+            <h3 style={{ color: "var(--hud-accent)", marginBottom: "0.5rem" }}>No Job Opportunities Discovered Yet</h3>
+            <p style={{ color: "var(--hud-text-secondary)", maxWidth: "500px", margin: "0 auto 1.5rem" }}>
+              Paste a vacancy link in Rapid Ingestion above or trigger an autonomous discovery search across Greenhouse, Lever, and LinkedIn.
+            </p>
+            <button
+              type="button"
+              className="jh-btn jh-btn-primary"
+              onClick={() => onNavigateTab("discover")}
+            >
+              Launch Discovery Search →
+            </button>
           </div>
-        ) : displayedJobs.length === 0 ? (
-          <div style={{ padding: "20px 10px", textAlign: "center", color: "var(--hud-text-muted)" }}>
-            No opportunities matched &quot;{listSearch}&quot;.
+        ) : filteredJobs.length === 0 ? (
+          <div style={{ padding: "2rem 1rem", textAlign: "center", color: "var(--hud-text-muted)" }}>
+            No opportunities matched current filters.
           </div>
         ) : (
-          <div>
-            {displayedJobs.slice(0, 8).map((job) => {
-              const score = scores[job.id];
-              const initials = (job.company_name || "JB").slice(0, 2).toUpperCase();
-              return (
-                <div
-                  key={job.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "10px 14px",
-                    borderBottom: "1px solid rgba(20, 53, 71, 0.4)",
-                    gap: "12px",
-                    borderRadius: "4px",
-                    transition: "background 0.15s ease",
-                  }}
-                  className="jh-job-row"
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px", flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        width: "34px",
-                        height: "34px",
-                        borderRadius: "6px",
-                        background: "rgba(0, 217, 255, 0.1)",
-                        border: "1px solid rgba(0, 217, 255, 0.3)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontFamily: "var(--hud-font-mono)",
-                        fontSize: "12px",
-                        fontWeight: 700,
-                        color: "var(--hud-accent)",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {initials}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-                        <strong
-                          style={{ color: "var(--hud-text-primary)", cursor: "pointer", fontSize: "13.5px" }}
-                          onClick={() => { onSelectJob(job.id); onNavigateTab("details"); }}
-                        >
-                          {job.title}
-                        </strong>
-                        <span className="jh-badge" style={{ textTransform: "uppercase" }}>{job.modality}</span>
-                        <span className="jh-badge" style={{ color: "var(--hud-accent-secondary)" }}>
-                          {job.source.replace("_", " ")}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: "11.5px", color: "var(--hud-text-secondary)", marginTop: "2px" }}>
-                        <span style={{ color: "var(--hud-accent)" }}>{job.company_name}</span> · {job.location || "Remote"} · Req: {job.experience_required_min}-{job.experience_required_max} yrs
-                      </div>
-                    </div>
-                  </div>
+          <div className="jh-two-pane-radar-layout">
+            {/* Left Pane: Job List */}
+            <div className="jh-two-pane-list">
+              {filteredJobs.map((job) => {
+                const score = scores[job.id];
+                const isSelected = activePreviewJob?.id === job.id;
+                const isDuplicate = duplicateSet.has(job.id);
+                const initials = (job.company_name || "JB").slice(0, 2).toUpperCase();
 
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
-                    {score ? (
-                      <span
-                        className={`jh-badge ${
-                          score.match_percentage >= 80
-                            ? "jh-badge-match-high"
-                            : score.match_percentage >= 60
-                            ? "jh-badge-match-med"
-                            : "jh-badge-match-low"
-                        }`}
-                        style={{ fontSize: "11px", padding: "3px 8px" }}
-                      >
-                        {score.match_percentage}% MATCH
-                      </span>
-                    ) : (
+                return (
+                  <div
+                    key={job.id}
+                    className={`jh-radar-job-card ${isSelected ? "selected" : ""}`}
+                    onClick={() => {
+                      setSelectedPreviewId(job.id);
+                      onSelectJob(job.id);
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start", flex: 1, minWidth: 0 }}>
+                      <div className="jh-radar-company-avatar">{initials}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <strong className="jh-radar-job-title">{job.title}</strong>
+                          {isDuplicate && (
+                            <span className="jh-badge jh-badge-alert" style={{ fontSize: "9px" }}>
+                              DUPLICATE
+                            </span>
+                          )}
+                          <span className="jh-badge" style={{ textTransform: "uppercase" }}>{job.modality}</span>
+                        </div>
+                        <div style={{ fontSize: "11.5px", color: "var(--hud-text-secondary)", marginTop: "2px" }}>
+                          <span style={{ color: "var(--hud-accent)" }}>{job.company_name}</span> · {job.location || "Remote"} · Req: {job.experience_required_min}-{job.experience_required_max} yrs
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                      {score ? (
+                        <span
+                          className={`jh-badge ${
+                            score.match_percentage >= 80
+                              ? "jh-badge-match-high"
+                              : score.match_percentage >= 60
+                              ? "jh-badge-match-med"
+                              : "jh-badge-match-low"
+                          }`}
+                          style={{ fontSize: "11px", padding: "3px 8px" }}
+                        >
+                          {score.match_percentage}% MATCH
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="jh-btn jh-btn-secondary"
+                          style={{ padding: "4px 8px", fontSize: "10px" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onRunMatch(job.id);
+                          }}
+                        >
+                          Run Match
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         className="jh-btn jh-btn-secondary"
-                        style={{ padding: "4px 8px", fontSize: "10px" }}
-                        onClick={() => void onRunMatch(job.id)}
+                        style={{ padding: "4px 8px", fontSize: "11px" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectJob(job.id);
+                          onNavigateTab("details");
+                        }}
                       >
-                        Run Match
+                        Details
                       </button>
+
+                      <button
+                        type="button"
+                        className="jh-btn jh-btn-primary"
+                        style={{ padding: "4px 10px", fontSize: "11px" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelectJob(job.id);
+                          void onTailorResume(job.id);
+                          onNavigateTab("resume");
+                        }}
+                      >
+                        Tailor
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Right Pane: Selected Opportunity Preview & Match Breakdown */}
+            {activePreviewJob && (
+              <div className="jh-two-pane-preview">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px" }}>
+                  <div>
+                    <h3 style={{ margin: "0 0 4px 0", fontSize: "15px", color: "var(--hud-text-primary)" }}>
+                      {activePreviewJob.title}
+                    </h3>
+                    <div style={{ fontSize: "12px", color: "var(--hud-accent)" }}>
+                      {activePreviewJob.company_name} · {activePreviewJob.location || "Remote"} ({activePreviewJob.modality.toUpperCase()})
+                    </div>
+                  </div>
+                  {activePreviewScore && (
+                    <span
+                      className={`jh-badge ${
+                        activePreviewScore.match_percentage >= 80
+                          ? "jh-badge-match-high"
+                          : activePreviewScore.match_percentage >= 60
+                          ? "jh-badge-match-med"
+                          : "jh-badge-match-low"
+                      }`}
+                      style={{ fontSize: "12px", padding: "4px 10px" }}
+                    >
+                      {activePreviewScore.match_percentage}% MATCH ({activePreviewScore.match_tier || "scored"})
+                    </span>
+                  )}
+                </div>
+
+                {/* Compatibility Factors Mini-Breakdown */}
+                {activePreviewScore && (
+                  <div style={{ background: "rgba(0,0,0,0.35)", padding: "10px", borderRadius: "6px", marginBottom: "12px" }}>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--hud-accent)", marginBottom: "6px" }}>
+                      10-FACTOR COMPATIBILITY SNAPSHOT
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "11px" }}>
+                      <div>
+                        <span style={{ color: "var(--hud-text-secondary)" }}>Technical Skills (30%):</span>{" "}
+                        <strong style={{ color: "var(--hud-success)" }}>{activePreviewScore.technical_skills_score}%</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--hud-text-secondary)" }}>Experience (25%):</span>{" "}
+                        <strong style={{ color: "var(--hud-success)" }}>{activePreviewScore.experience_score}%</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--hud-text-secondary)" }}>Responsibilities (15%):</span>{" "}
+                        <strong>{activePreviewScore.responsibilities_score || 85}%</strong>
+                      </div>
+                      <div>
+                        <span style={{ color: "var(--hud-text-secondary)" }}>Location (10%):</span>{" "}
+                        <strong>{activePreviewScore.location_score || 90}%</strong>
+                      </div>
+                    </div>
+
+                    {activePreviewScore.strengths && activePreviewScore.strengths.length > 0 && (
+                      <div style={{ marginTop: "8px", fontSize: "11px", color: "var(--hud-text-primary)" }}>
+                        <span style={{ color: "var(--hud-success)", fontWeight: 700 }}>✓ Key Strengths: </span>
+                        {activePreviewScore.strengths.slice(0, 2).join("; ")}
+                      </div>
                     )}
+                  </div>
+                )}
 
-                    <button
-                      type="button"
-                      className="jh-btn jh-btn-secondary"
-                      style={{ padding: "4px 8px", fontSize: "11px" }}
-                      onClick={() => { onSelectJob(job.id); onNavigateTab("details"); }}
-                    >
-                      Details
-                    </button>
-
-                    <button
-                      type="button"
-                      className="jh-btn jh-btn-primary"
-                      style={{ padding: "4px 10px", fontSize: "11px" }}
-                      onClick={() => { onSelectJob(job.id); void onTailorResume(job.id); onNavigateTab("resume"); }}
-                    >
-                      Tailor
-                    </button>
+                {/* Skills tags */}
+                <div style={{ marginBottom: "12px" }}>
+                  <div style={{ fontSize: "11px", color: "var(--hud-text-secondary)", marginBottom: "4px" }}>
+                    Required Skills:
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                    {activePreviewJob.required_skills?.map((sk) => (
+                      <span key={sk} className="jh-tag" style={{ fontSize: "10.5px" }}>
+                        {sk}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Quick Actions */}
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "14px" }}>
+                  <button
+                    type="button"
+                    className="jh-btn jh-btn-primary"
+                    style={{ fontSize: "11.5px", padding: "5px 12px" }}
+                    onClick={() => {
+                      onSelectJob(activePreviewJob.id);
+                      void onTailorResume(activePreviewJob.id);
+                      onNavigateTab("resume");
+                    }}
+                  >
+                    📝 Tailor Resume
+                  </button>
+                  <button
+                    type="button"
+                    className="jh-btn jh-btn-secondary"
+                    style={{ fontSize: "11.5px", padding: "5px 12px" }}
+                    onClick={() => {
+                      onSelectJob(activePreviewJob.id);
+                      onNavigateTab("cover_letter");
+                    }}
+                  >
+                    ✉️ Draft Cover Letter
+                  </button>
+                  <button
+                    type="button"
+                    className="jh-btn jh-btn-secondary"
+                    style={{ fontSize: "11.5px", padding: "5px 12px" }}
+                    onClick={() => {
+                      onSelectJob(activePreviewJob.id);
+                      onNavigateTab("details");
+                    }}
+                  >
+                    📋 Full Specification
+                  </button>
+                  <a
+                    href={activePreviewJob.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="jh-btn jh-btn-secondary"
+                    style={{ fontSize: "11.5px", padding: "5px 12px", textDecoration: "none" }}
+                  >
+                    ↗ Original Posting
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
     </div>
   );
 }
-

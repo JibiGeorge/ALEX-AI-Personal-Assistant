@@ -37,6 +37,8 @@ export function ResumeStudioView({
   const [uploadingResume, setUploadingResume] = useState(false);
   const [careerRecs, setCareerRecs] = useState<CareerRecommendations | null>(null);
   const [loadingRecs, setLoadingRecs] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+  const [showJobSpecSide, setShowJobSpecSide] = useState(true);
 
   // Load documents for current job
   useEffect(() => {
@@ -462,7 +464,7 @@ export function ResumeStudioView({
       {/* MODE 2: JOB-SPECIFIC TAILORING STUDIO */}
       {studioMode === "tailor" && (
         <>
-          {/* Target Opportunity Selector */}
+          {/* Target Opportunity Selector & Controls Bar */}
           <div className="jh-card" style={{ marginBottom: "1rem", padding: "0.75rem 1rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
@@ -471,7 +473,7 @@ export function ResumeStudioView({
                   value={job?.id || ""}
                   onChange={(e) => onSelectJob(e.target.value)}
                   className="jh-input"
-                  style={{ width: "auto", minWidth: "260px" }}
+                  style={{ width: "auto", minWidth: "240px" }}
                 >
                   {allJobs.map((j) => (
                     <option key={j.id} value={j.id}>
@@ -479,6 +481,36 @@ export function ResumeStudioView({
                     </option>
                   ))}
                 </select>
+
+                <button
+                  type="button"
+                  className="jh-btn jh-btn-secondary"
+                  style={{ fontSize: "0.75rem", padding: "0.35rem 0.65rem" }}
+                  onClick={() => setShowJobSpecSide(!showJobSpecSide)}
+                  title="Toggle Target Job Requirements Side-Panel"
+                >
+                  {showJobSpecSide ? "Hide Job Specs" : "Show Job Specs"}
+                </button>
+
+                <button
+                  type="button"
+                  className={`jh-btn ${showDiff ? "jh-btn-primary" : "jh-btn-secondary"}`}
+                  style={{ fontSize: "0.75rem", padding: "0.35rem 0.65rem" }}
+                  onClick={() => setShowDiff(!showDiff)}
+                  title="Toggle Unified Diff vs Base Resume"
+                >
+                  {showDiff ? "✓ Unified Diff Active" : "Diff vs Base Resume"}
+                </button>
+
+                <button
+                  type="button"
+                  className="jh-btn jh-btn-secondary"
+                  style={{ fontSize: "0.75rem", padding: "0.35rem 0.65rem" }}
+                  onClick={() => onNavigateTab?.("cover_letter")}
+                  title="Draft targeted cover letter for this job"
+                >
+                  ✉️ Draft Cover Letter →
+                </button>
               </div>
 
               {documents.length > 0 && (
@@ -516,7 +548,60 @@ export function ResumeStudioView({
             </div>
           </div>
 
-          {/* Dual Pane Editor */}
+          {/* Unified Diff View (if toggled) */}
+          {showDiff && selectedDoc && (
+            <div className="jh-card" style={{ marginBottom: "1rem", padding: "14px", border: "1px solid rgba(0, 229, 255, 0.4)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                <strong style={{ fontSize: "12px", color: "var(--hud-accent)" }}>
+                  UNIFIED DIFF: TAILORED v{selectedDoc.version_number} VS BASE MASTER RESUME
+                </strong>
+                <button
+                  type="button"
+                  className="jh-btn jh-btn-secondary"
+                  style={{ fontSize: "10.5px", padding: "2px 8px" }}
+                  onClick={() => setShowDiff(false)}
+                >
+                  Close Diff
+                </button>
+              </div>
+              <div
+                style={{
+                  maxHeight: "220px",
+                  overflowY: "auto",
+                  fontFamily: "var(--hud-font-mono, monospace)",
+                  fontSize: "11px",
+                  lineHeight: "1.6",
+                  background: "rgba(0,0,0,0.5)",
+                  padding: "10px",
+                  borderRadius: "4px",
+                }}
+              >
+                {selectedDoc.customizations_summary && selectedDoc.customizations_summary.length > 0 && (
+                  <div style={{ marginBottom: "8px", color: "var(--hud-teal)" }}>
+                    {selectedDoc.customizations_summary.map((c, i) => (
+                      <div key={i}>+ [TAILORED HIGHLIGHT] {c}</div>
+                    ))}
+                  </div>
+                )}
+                {editorContent.split("\n").slice(0, 30).map((line, idx) => {
+                  const isKeyword = selectedDoc.ats_keywords_included?.some((kw) => line.includes(kw));
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        color: isKeyword ? "var(--hud-success)" : "var(--hud-text-secondary)",
+                        background: isKeyword ? "rgba(16, 185, 129, 0.1)" : "transparent",
+                      }}
+                    >
+                      {isKeyword ? `+ ${line}` : `  ${line}`}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Dual / Tri-Pane Editor */}
           {loading ? (
             <div className="jh-empty-state">Loading tailored resume versions...</div>
           ) : documents.length === 0 ? (
@@ -538,7 +623,61 @@ export function ResumeStudioView({
               </button>
             </div>
           ) : (
-            <div className="jh-dual-pane">
+            <div
+              className="jh-dual-pane"
+              style={{
+                display: "grid",
+                gridTemplateColumns: showJobSpecSide ? "300px 1fr 1fr" : "1fr 1fr",
+                gap: "12px",
+              }}
+            >
+              {/* Left Column: Target Job Requirements (Side-by-Side Reference) */}
+              {showJobSpecSide && job && (
+                <div className="jh-pane" style={{ background: "rgba(3, 14, 22, 0.7)" }}>
+                  <div className="jh-pane-header">
+                    <span>TARGET JOB SPECS</span>
+                    <span style={{ fontSize: "0.75rem", color: "var(--hud-accent)" }}>{job.company_name}</span>
+                  </div>
+                  <div style={{ padding: "12px", overflowY: "auto", maxHeight: "550px", fontSize: "11.5px" }}>
+                    <div style={{ fontWeight: 700, color: "var(--hud-text-primary)", marginBottom: "4px" }}>
+                      {job.title}
+                    </div>
+                    <div style={{ color: "var(--hud-text-secondary)", marginBottom: "10px" }}>
+                      {job.location || "Remote"} · {job.modality.toUpperCase()} · Req: {job.experience_required_min}-{job.experience_required_max} yrs
+                    </div>
+
+                    <strong style={{ display: "block", color: "var(--hud-accent)", marginBottom: "6px" }}>
+                      Required Skills:
+                    </strong>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "12px" }}>
+                      {job.required_skills?.map((sk) => (
+                        <span key={sk} className="jh-tag" style={{ fontSize: "10px" }}>
+                          {sk}
+                        </span>
+                      ))}
+                    </div>
+
+                    <strong style={{ display: "block", color: "var(--hud-accent)", marginBottom: "6px" }}>
+                      Job Summary:
+                    </strong>
+                    <div
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        color: "var(--hud-text-secondary)",
+                        lineHeight: "1.5",
+                        fontSize: "11px",
+                        background: "rgba(0,0,0,0.25)",
+                        padding: "8px",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      {(job.cleaned_description || job.raw_description || "").slice(0, 450)}...
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Center Column: ATS Markdown Source */}
               <div className="jh-pane">
                 <div className="jh-pane-header">
                   <span>ATS MARKDOWN SOURCE (v{selectedDoc?.version_number})</span>
@@ -553,6 +692,7 @@ export function ResumeStudioView({
                 />
               </div>
 
+              {/* Right Column: Live HUD Preview */}
               <div className="jh-pane">
                 <div className="jh-pane-header">
                   <span>LIVE HUD PREVIEW</span>

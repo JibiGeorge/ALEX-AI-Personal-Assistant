@@ -40,7 +40,17 @@ export function ApprovalDialog({ approval, onDecision, onClose }: ApprovalDialog
             ALEX requires your explicit consent before executing external application activity:
           </p>
           <div style={{ background: "rgba(0,0,0,0.3)", padding: "10px", borderRadius: "4px", marginBottom: "12px", fontFamily: "var(--hud-font-mono)", fontSize: "12px" }}>
-            <div><strong>REQUESTED ACTION:</strong> <span style={{ color: "var(--hud-accent)" }}>{approval.requested_action}</span></div>
+            <div>
+              <strong>ACTION STATUS:</strong>{" "}
+              <span style={{ color: "var(--hud-accent)" }}>
+                {approval.requested_action === "submit_application"
+                  ? "Ready to submit (Requires your review)"
+                  : approval.requested_action.replace(/_/g, " ").toUpperCase()}
+              </span>
+            </div>
+            <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--hud-text-secondary)" }}>
+              All documents have been tailored and verified against facts. No external submission occurs without your direct sign-off.
+            </div>
             <div style={{ marginTop: "4px" }}><strong>APPLICATION ID:</strong> {approval.application_id}</div>
             <div style={{ marginTop: "4px" }}><strong>CHANNEL:</strong> {approval.approval_channel}</div>
           </div>
