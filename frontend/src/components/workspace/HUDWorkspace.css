@@ -1183,10 +1183,36 @@
   top: calc(100% - min(11vh, 87.5px) - 24px);
   left: calc(100% - min(11vh, 87.5px) - 26px);
   transform: translate(-50%, -50%);
-  width: calc(min(22vh, 175px) * 1.35);
-  height: calc(min(22vh, 175px) * 1.35);
-  opacity: 0.88;
+  width: calc(min(22vh, 175px) * 1.45);
+  height: calc(min(22vh, 175px) * 1.45);
+  opacity: 0.92;
   z-index: 19;
+}
+
+.holo-radar-vector {
+  position: absolute;
+  inset: -15%;
+  width: 130%;
+  height: 130%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.holo-vector-spin {
+  transform-origin: center center;
+  animation: meter-spin 60s linear infinite;
+}
+
+.holo-vector-crosshairs {
+  transform-origin: center center;
+}
+
+/* Background adaptation when active workspace window is open */
+.hud-center.has-active-workspace {
+  background:
+    radial-gradient(ellipse at 88% 88%, rgba(0, 229, 255, 0.16) 0%, rgba(8, 123, 255, 0.06) 35%, transparent 60%),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, 0.03) 0%, rgba(6, 21, 34, 0.6) 55%, #020a12 85%),
+    #020a12;
 }
 
 /* Mini Assistant Status Badge for Compact Bottom-Right Mode */

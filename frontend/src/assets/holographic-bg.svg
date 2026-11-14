@@ -47,30 +47,6 @@
   <polygon points="960,0 800,850 1120,850" fill="url(#beamGradient)" opacity="0.6"/>
   <polygon points="960,0 880,750 1040,750" fill="url(#beamGradient)" opacity="0.4"/>
 
-  <!-- Atmospheric Concentric Holographic Rings (Center AI Locus) -->
-  <g transform="translate(960, 540)" opacity="0.45">
-    <!-- Outer Arc Ring -->
-    <circle r="440" fill="none" stroke="#00e5ff" stroke-width="1" stroke-dasharray="8 16" opacity="0.3"/>
-    <circle r="380" fill="none" stroke="#087bff" stroke-width="1.5" stroke-dasharray="24 12 6 12" opacity="0.4"/>
-    <circle r="320" fill="none" stroke="#00e5ff" stroke-width="1" stroke-dasharray="4 8" opacity="0.25"/>
-    <circle r="260" fill="none" stroke="#00a8cc" stroke-width="1.2" stroke-opacity="0.35"/>
-    <circle r="200" fill="none" stroke="#00e5ff" stroke-width="2" stroke-dasharray="160 30" opacity="0.4" filter="url(#glow)"/>
-    <circle r="140" fill="none" stroke="#087bff" stroke-width="1" stroke-dasharray="40 10 10 10" opacity="0.3"/>
-    <circle r="90" fill="none" stroke="#00e5ff" stroke-width="1" stroke-opacity="0.3"/>
-
-    <!-- Axis Crosshairs & Coordinates -->
-    <line x1="-480" y1="0" x2="-280" y2="0" stroke="#00e5ff" stroke-width="1" opacity="0.3"/>
-    <line x1="280" y1="0" x2="480" y2="0" stroke="#00e5ff" stroke-width="1" opacity="0.3"/>
-    <line x1="0" y1="-440" x2="0" y2="-280" stroke="#00e5ff" stroke-width="1" opacity="0.3"/>
-    <line x1="0" y1="280" x2="0" y2="440" stroke="#00e5ff" stroke-width="1" opacity="0.3"/>
-
-    <!-- Circular Radar Angle Ticks -->
-    <path d="M -300,-120 L -315,-126" stroke="#00e5ff" stroke-width="1.5" opacity="0.5"/>
-    <path d="M 300,-120 L 315,-126" stroke="#00e5ff" stroke-width="1.5" opacity="0.5"/>
-    <path d="M -300,120 L -315,126" stroke="#00e5ff" stroke-width="1.5" opacity="0.5"/>
-    <path d="M 300,120 L 315,126" stroke="#00e5ff" stroke-width="1.5" opacity="0.5"/>
-  </g>
-
   <!-- Perspective Holographic Energy Platform (Floor Grid) -->
   <g opacity="0.35">
     <ellipse cx="960" cy="880" rx="640" ry="140" fill="none" stroke="#00e5ff" stroke-width="2" filter="url(#glow)" opacity="0.4"/>

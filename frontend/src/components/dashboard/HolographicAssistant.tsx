@@ -127,8 +127,62 @@ export function HolographicAssistant({
         />
       )}
 
-      {/* Concentric Rotating Holographic Radar Rings */}
+      {/* Concentric Rotating Holographic Radar Rings & Targeting Vectors */}
       <div className={`holo-concentric-rings ${isWorkspaceActive ? "in-workspace-mode" : ""}`} aria-hidden="true">
+        <svg
+          className="holo-radar-vector"
+          viewBox="-500 -500 1000 1000"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <filter id="holoVectorGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            <radialGradient id="holoVectorCoreGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#00e5ff" stopOpacity="0.25" />
+              <stop offset="45%" stopColor="#087bff" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="#020a12" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+
+          {/* Central Glow Aura */}
+          <circle r="460" fill="url(#holoVectorCoreGlow)" />
+
+          {/* Rotating Vector Arc Group */}
+          <g className="holo-vector-spin">
+            <circle r="440" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeDasharray="8 16" opacity="0.35" />
+            <circle r="380" fill="none" stroke="#087bff" strokeWidth="1.8" strokeDasharray="24 12 6 12" opacity="0.45" />
+            <circle r="320" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeDasharray="4 8" opacity="0.3" />
+            <circle r="260" fill="none" stroke="#00a8cc" strokeWidth="1.4" strokeOpacity="0.4" />
+            <circle r="200" fill="none" stroke="#00e5ff" strokeWidth="2.2" strokeDasharray="160 30" opacity="0.45" filter="url(#holoVectorGlow)" />
+            <circle r="140" fill="none" stroke="#087bff" strokeWidth="1.2" strokeDasharray="40 10 10 10" opacity="0.35" />
+            <circle r="90" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeOpacity="0.35" />
+
+            {/* Circular Radar Angle Ticks */}
+            <path d="M -300,-120 L -315,-126" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
+            <path d="M 300,-120 L 315,-126" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
+            <path d="M -300,120 L -315,126" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
+            <path d="M 300,120 L 315,126" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
+          </g>
+
+          {/* Axis Crosshairs & Coordinates */}
+          <g className="holo-vector-crosshairs">
+            <line x1="-480" y1="0" x2="-280" y2="0" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
+            <line x1="280" y1="0" x2="480" y2="0" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
+            <line x1="0" y1="-440" x2="0" y2="-280" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
+            <line x1="0" y1="280" x2="0" y2="440" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
+
+            {/* Coordinate Target Reticle Ticks */}
+            <line x1="-16" y1="0" x2="16" y2="0" stroke="#00e5ff" strokeWidth="1.5" opacity="0.5" />
+            <line x1="0" y1="-16" x2="0" y2="16" stroke="#00e5ff" strokeWidth="1.5" opacity="0.5" />
+          </g>
+        </svg>
+
+        {/* Existing CSS animated rings preserved for backwards compatibility */}
         <div className="holo-ring holo-ring-outer" />
         <div className="holo-ring holo-ring-mid" />
         <div className="holo-ring holo-ring-inner" />
