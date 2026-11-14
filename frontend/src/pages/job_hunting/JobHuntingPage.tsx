@@ -71,6 +71,16 @@ export function JobHuntingPage({ onError }: JobHuntingPageProps) {
     }
   }
 
+  // Auto-close notification message
+  useEffect(() => {
+    if (!notice) return;
+    const duration = notice.kind === "error" ? 6000 : 4000;
+    const timer = setTimeout(() => {
+      setNotice(null);
+    }, duration);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   // Initial load
   useEffect(() => {
     let active = true;
