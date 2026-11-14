@@ -108,12 +108,31 @@ export function RealisticHumanoid3D({
     };
   }, [hasWebGL, primaryColor, accentColor, quality]);
 
-  // Main Render Loop
+  // Main Render Loop (TASK-P3: Pausable on hidden, 30fps in Low-Power mode)
   useEffect(() => {
     let active = true;
+    let lastTime = performance.now();
 
-    const renderLoop = () => {
+    const isLowPower =
+      typeof window !== "undefined" &&
+      (localStorage.getItem("alex_low_power_mode") === "true" ||
+        document.documentElement.getAttribute("data-low-power") === "true" ||
+        (typeof window.matchMedia === "function" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches));
+
+    const renderLoop = (now: number) => {
       if (!active) return;
+      if (document.hidden) {
+        animFrameRef.current = null;
+        return;
+      }
+
+      const targetInterval = isLowPower ? 33.33 : 16.66;
+      if (now - lastTime < targetInterval) {
+        animFrameRef.current = requestAnimationFrame(renderLoop);
+        return;
+      }
+      lastTime = now;
 
       const visualMode: AssistantVisualMode = mode as AssistantVisualMode;
 
@@ -125,10 +144,19 @@ export function RealisticHumanoid3D({
       animFrameRef.current = requestAnimationFrame(renderLoop);
     };
 
+    const handleVisibility = () => {
+      if (!document.hidden && animFrameRef.current === null && active) {
+        lastTime = performance.now();
+        animFrameRef.current = requestAnimationFrame(renderLoop);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     animFrameRef.current = requestAnimationFrame(renderLoop);
 
     return () => {
       active = false;
+      document.removeEventListener("visibilitychange", handleVisibility);
       if (animFrameRef.current !== null) {
         cancelAnimationFrame(animFrameRef.current);
       }

@@ -1,6 +1,6 @@
-import type { CSSProperties } from "react";
 import { VisualizationManager } from "../avatar/VisualizationManager";
 import { HUDWorkspace } from "../workspace/HUDWorkspace";
+import "../workspace/HUDWorkspace.css";
 import { AlexResponseStream, type AlexResponseItem } from "./AlexResponseStream";
 import type { AppSettings, HudStyle } from "../../types/api";
 import type { WorkspaceActivity, WorkspaceActivityType } from "../../types/workspace";
@@ -272,13 +272,6 @@ export function HolographicAssistant({
               <span className="hud-chip-icon" aria-hidden="true">⚡</span>
               <span>System status</span>
             </button>
-          </div>
-
-          {/* Dynamic Audio Spectral Waveform */}
-          <div className="hud-waveform" aria-hidden="true">
-            {Array.from({ length: 44 }, (_, index) => (
-              <i key={index} style={{ "--wave-index": index } as CSSProperties} />
-            ))}
           </div>
         </div>
       )}

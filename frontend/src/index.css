@@ -5900,7 +5900,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   }
 }
 
-/* 6. Pulsating Perspective Floor Grid */
+/* 6. Pulsating Perspective Floor Grid (Faded to faint ambient effect - TASK-P3) */
 .holo-perspective-grid {
   position: absolute;
   bottom: 0;
@@ -5908,24 +5908,24 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   right: 0;
   height: 38%;
   background-image:
-    linear-gradient(rgba(0, 223, 255, 0.10) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 223, 255, 0.10) 1px, transparent 1px);
+    linear-gradient(rgba(0, 223, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 223, 255, 0.05) 1px, transparent 1px);
   background-size: 40px 40px;
   transform: perspective(300px) rotateX(65deg);
   transform-origin: bottom center;
-  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 95%);
-  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 95%);
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.25) 0%, transparent 95%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.25) 0%, transparent 95%);
   pointer-events: none;
-  animation: grid-floor-pulse 3s ease-in-out infinite alternate;
+  animation: grid-floor-pulse 5s ease-in-out infinite alternate;
 }
 
 @keyframes grid-floor-pulse {
   0% {
-    opacity: 0.55;
+    opacity: 0.08;
     background-position: 0 0;
   }
   100% {
-    opacity: 0.92;
+    opacity: 0.16;
     background-position: 0 40px;
   }
 }
@@ -7027,6 +7027,43 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   z-index: 1;
   display: grid;
   place-items: center;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Docked Avatar & Concentric Holographic Rings when Job Panel or Workspace is Active (TASK-P3) */
+.hud-center .hud-avatar-stage.in-workspace-mode,
+.hud-avatar-stage.in-workspace-mode,
+.hud-avatar-stage.is-docked {
+  position: absolute !important;
+  top: auto !important;
+  bottom: 84px !important;
+  left: auto !important;
+  right: 24px !important;
+  transform: none !important;
+  width: 140px !important;
+  height: 140px !important;
+  z-index: 25 !important;
+  background: radial-gradient(circle, rgba(2, 16, 26, 0.96) 0%, rgba(1, 8, 14, 0.92) 70%, transparent 100%) !important;
+  border: 1px solid rgba(0, 229, 255, 0.55) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 28px rgba(0, 217, 255, 0.4), inset 0 0 16px rgba(0, 217, 255, 0.22) !important;
+  overflow: visible !important;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.hud-center .holo-concentric-rings.in-workspace-mode,
+.holo-concentric-rings.in-workspace-mode {
+  position: absolute !important;
+  top: auto !important;
+  bottom: 54px !important;
+  left: auto !important;
+  right: -6px !important;
+  transform: none !important;
+  width: 200px !important;
+  height: 200px !important;
+  opacity: 0.85 !important;
+  z-index: 24 !important;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
 .holo-ring {
@@ -8007,7 +8044,12 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .holo-shield-barrier,
   .holo-scanner-sweep,
   .holo-perspective-grid,
-  .holo-completion-nova {
+  .holo-completion-nova,
+  .holo-vector-spin,
+  .reactor-spin,
+  .reactor-breathe,
+  .reactor-response-breathe,
+  .face-wire {
     animation: none !important;
     transition: none !important;
   }
@@ -8265,8 +8307,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 [data-low-power="true"] * {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
 }
 
-[data-low-power="true"] .holo-perspective-grid {
+[data-low-power="true"] .holo-perspective-grid,
+[data-low-power="true"] .hud-laser-scanline,
+[data-low-power="true"] .hud-starfield {
   display: none !important;
+}
+
+[data-low-power="true"] .holo-vector-spin {
+  animation: none !important;
+}
+
+[data-low-power="true"] .holo-concentric-rings {
+  filter: none !important;
 }

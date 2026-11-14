@@ -25,6 +25,7 @@ export interface RenderOptions {
   mode?: "booting" | "idle" | "listening" | "thinking" | "speaking";
   viseme?: VisemeShape;
   diagnosticPhase?: string;
+  lowPower?: boolean;
 }
 
 // Synaptic neural cranial landmarks (MediaPipe canonical head indices)
@@ -414,10 +415,14 @@ export class HoloAvatarRenderer {
 
     const cx = width / 2;
     const cy = height / 2;
-    const scaleRadius = Math.min(width, height) * 0.42;
+
+    // Pulse synced to audio amplitude during speech (TASK-P3)
+    const isSpeaking = options.speaking || options.mode === "speaking";
+    const speechPulse = isSpeaking ? 1 + (options.amplitude ?? 0) * 0.08 : 1;
+    const scaleRadius = Math.min(width, height) * 0.42 * speechPulse;
 
     // 1. Aura glow background (adapts smoothly to state colors)
-    const auraRadius = scaleRadius * 1.6;
+    const auraRadius = scaleRadius * (isSpeaking ? 1.7 : 1.6);
     const aura = ctx.createRadialGradient(cx, cy, scaleRadius * 0.1, cx, cy, auraRadius);
     aura.addColorStop(0, this.curAuraInner);
     aura.addColorStop(0.5, this.curAuraMid);
@@ -428,12 +433,27 @@ export class HoloAvatarRenderer {
     ctx.arc(cx, cy, auraRadius, 0, Math.PI * 2);
     ctx.fill();
 
+    // 1b. Audio ripples driven by mic input level when listening (TASK-P3)
+    if (options.mode === "listening" && (options.amplitude ?? 0) > 0.02) {
+      const amp = Math.min(1.0, options.amplitude ?? 0);
+      const ripplePhase = (this.t * 2.2) % 1.0;
+      const rippleR = scaleRadius * (1.05 + ripplePhase * 0.45);
+      const rippleAlpha = (1.0 - ripplePhase) * 0.45 * amp;
+      ctx.strokeStyle = `rgba(32, 214, 160, ${rippleAlpha.toFixed(3)})`;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rippleR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     // 2. Pose & Project 3D Mesh
     this.pose();
     this.project(cx, cy, scaleRadius);
 
-    // 3. Volumetric Holographic Atmosphere (Floating Energy Motes)
-    this.renderAtmosphere(ctx, cx, cy, scaleRadius);
+    // 3. Volumetric Holographic Atmosphere (Floating Energy Motes) — disabled in low-power
+    if (!options.lowPower) {
+      this.renderAtmosphere(ctx, cx, cy, scaleRadius);
+    }
 
     // 4. Render Shaded Facets (Depth sorted)
     this.renderShadedFacets(ctx);

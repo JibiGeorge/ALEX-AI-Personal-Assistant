@@ -65,11 +65,32 @@ export function HudAvatar({
     }
     let lastTime = performance.now();
 
+    // Low-power and reduced-motion detection (TASK-P3)
+    const isLowPower =
+      typeof window !== "undefined" &&
+      (localStorage.getItem("alex_low_power_mode") === "true" ||
+        document.documentElement.getAttribute("data-low-power") === "true" ||
+        (typeof window.matchMedia === "function" &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches));
+
     // Pre-allocated buffers for zero-allocation audio sampling in RAF loop
     const freqData = new Uint8Array(256);
     const timeData = new Float32Array(256);
 
     const loop = (now: number) => {
+      // Pause animation loop when window/tab is hidden (TASK-P3)
+      if (document.hidden) {
+        animFrameRef.current = null;
+        return;
+      }
+
+      // Drop animations to 30fps in Low-Power mode (TASK-P3)
+      const targetInterval = isLowPower ? 33.33 : 16.66;
+      if (now - lastTime < targetInterval) {
+        animFrameRef.current = requestAnimationFrame(loop);
+        return;
+      }
+
       const dt = Math.min(0.1, (now - lastTime) / 1000);
       lastTime = now;
 
@@ -173,6 +194,7 @@ export function HudAvatar({
           mode: activeMode,
           viseme: currentViseme,
           diagnosticPhase,
+          lowPower: isLowPower,
         });
 
         if (ctx && canvas) {
@@ -184,6 +206,7 @@ export function HudAvatar({
             speaking: realTimeSpeaking,
             viseme: currentViseme,
             diagnosticPhase,
+            lowPower: isLowPower,
           });
         }
       }
@@ -191,9 +214,18 @@ export function HudAvatar({
       animFrameRef.current = requestAnimationFrame(loop);
     };
 
+    const handleVisibility = () => {
+      if (!document.hidden && animFrameRef.current === null) {
+        lastTime = performance.now();
+        animFrameRef.current = requestAnimationFrame(loop);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
     animFrameRef.current = requestAnimationFrame(loop);
 
     return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
       if (animFrameRef.current !== null) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
