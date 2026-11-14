@@ -330,9 +330,11 @@ export interface AlexApi {
   wakeAssistant?: () => Promise<{ status: string; state: string }>;
   sleepAssistant?: () => Promise<{ status: string; state: string }>;
   ensureMicrophoneAccess?: () => Promise<{ granted: boolean; status: string }>;
+  ensureCameraAccess?: () => Promise<{ granted: boolean; status: string }>;
   getMediaStatus?: () => Promise<MediaStatus>;
   resolveMedia?: (source: string) => Promise<MediaResolveResponse>;
   controlMedia?: (action: string, source?: string, title?: string, muted?: boolean) => Promise<MediaStatus>;
+  requestBackend?: (method: string, route: string, body?: unknown) => Promise<any>;
 }
 
 declare global {

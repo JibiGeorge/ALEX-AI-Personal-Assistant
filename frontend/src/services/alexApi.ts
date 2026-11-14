@@ -96,6 +96,10 @@ export const alexApi = {
     api().ensureMicrophoneAccess
       ? api().ensureMicrophoneAccess!()
       : Promise.resolve({ granted: true, status: "granted" }),
+  ensureCameraAccess: () =>
+    api().ensureCameraAccess
+      ? api().ensureCameraAccess!()
+      : Promise.resolve({ granted: true, status: "granted" }),
   getMediaStatus: () =>
     api().getMediaStatus
       ? api().getMediaStatus!()

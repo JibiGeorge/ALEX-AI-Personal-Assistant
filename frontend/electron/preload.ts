@@ -90,10 +90,13 @@ const api: AlexApi = {
   wakeAssistant: () => ipcRenderer.invoke("alex:voice:wake"),
   sleepAssistant: () => ipcRenderer.invoke("alex:voice:sleep"),
   ensureMicrophoneAccess: () => ipcRenderer.invoke("alex:microphone:ensure-access"),
+  ensureCameraAccess: () => ipcRenderer.invoke("alex:camera:ensure-access"),
   getMediaStatus: () => ipcRenderer.invoke("alex:media:status"),
   resolveMedia: (source: string) => ipcRenderer.invoke("alex:media:resolve", source),
   controlMedia: (action: string, source?: string, title?: string, muted?: boolean) =>
     ipcRenderer.invoke("alex:media:control", action, source, title, muted),
+  requestBackend: (method: string, route: string, body?: unknown) =>
+    ipcRenderer.invoke("alex:backend:request", method, route, body),
 };
 
 contextBridge.exposeInMainWorld("alex", api);

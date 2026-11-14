@@ -617,15 +617,23 @@ function isAllowedProdFile(testUrl: string): boolean {
   }
 }
 
-async function configureMicrophonePermission(): Promise<void> {
+async function configureMediaPermissions(): Promise<void> {
   if (process.platform === "darwin") {
     try {
-      const status = systemPreferences.getMediaAccessStatus("microphone");
-      if (status === "not-determined") {
+      const micStatus = systemPreferences.getMediaAccessStatus("microphone");
+      if (micStatus === "not-determined") {
         await systemPreferences.askForMediaAccess("microphone");
       }
     } catch (error) {
       console.warn("Could not query or request macOS microphone access:", error);
+    }
+    try {
+      const camStatus = systemPreferences.getMediaAccessStatus("camera");
+      if (camStatus === "not-determined") {
+        await systemPreferences.askForMediaAccess("camera");
+      }
+    } catch (error) {
+      console.warn("Could not query or request macOS camera access:", error);
     }
   }
 
@@ -643,21 +651,13 @@ async function configureMicrophonePermission(): Promise<void> {
         callback(false);
         return;
       }
-      if ((permission as string) === "microphone") {
+      if ((permission as string) === "microphone" || (permission as string) === "camera") {
         callback(true);
         return;
       }
       if (permission === "media") {
-        const mediaTypes = (details as any).mediaTypes as string[] | undefined;
-        const mediaType = (details as any).mediaType as string | undefined;
-        const audioRequested =
-          (Array.isArray(mediaTypes) && mediaTypes.includes("audio")) ||
-          mediaType === "audio" ||
-          (!mediaTypes && !mediaType);
-        const videoRequested =
-          (Array.isArray(mediaTypes) && mediaTypes.includes("video")) ||
-          mediaType === "video";
-        callback(audioRequested && !videoRequested);
+        // Allow both audio (mic) and optical video (camera) in the trusted window
+        callback(true);
         return;
       }
       callback(false);
@@ -665,10 +665,9 @@ async function configureMicrophonePermission(): Promise<void> {
   );
   session.defaultSession.setPermissionCheckHandler((contents, permission, _origin, details) => {
     if (!contents || !isTrustedWindow(contents)) return false;
-    if ((permission as string) === "microphone") return true;
+    if ((permission as string) === "microphone" || (permission as string) === "camera") return true;
     if (permission === "media") {
-      const mediaType = (details as any).mediaType as string | undefined;
-      return mediaType === "audio" || !mediaType;
+      return true;
     }
     return false;
   });
@@ -890,6 +889,22 @@ function registerIpc(): void {
     }
     return { granted: true, status: "granted" };
   });
+  ipcMain.handle("alex:camera:ensure-access", async (event) => {
+    assertTrustedSender(event);
+    if (process.platform === "darwin") {
+      try {
+        let status = systemPreferences.getMediaAccessStatus("camera");
+        if (status === "not-determined") {
+          const granted = await systemPreferences.askForMediaAccess("camera");
+          return { granted, status: granted ? "granted" : "denied" };
+        }
+        return { granted: status === "granted", status };
+      } catch (err) {
+        return { granted: true, status: "unknown" };
+      }
+    }
+    return { granted: true, status: "granted" };
+  });
   ipcMain.handle("alex:status", async (event) => {
     assertTrustedSender(event);
     return backendRequest<ApiStatus>("GET", "/api/v1/health");
@@ -1101,6 +1116,13 @@ function registerIpc(): void {
     assertTrustedSender(event);
     await shell.openExternal(validateExternalUrl(value));
   });
+  ipcMain.handle("alex:backend:request", async (event, method: unknown, route: unknown, body?: unknown) => {
+    assertTrustedSender(event);
+    if (typeof method !== "string" || typeof route !== "string") {
+      throw new Error("Invalid backend request arguments");
+    }
+    return backendRequest(method, route, body);
+  });
   ipcMain.handle(
     "alex:weather:search",
     async (event, city: unknown, when: unknown) => {
@@ -1300,8 +1322,8 @@ async function stopBackend(): Promise<void> {
 app.whenReady().then(async () => {
   let stepDescription = "initialize the desktop application";
   try {
-    stepDescription = "configure microphone permissions";
-    await configureMicrophonePermission();
+    stepDescription = "configure media permissions";
+    await configureMediaPermissions();
 
     stepDescription = "start or connect to the Python backend";
     await startBackend();

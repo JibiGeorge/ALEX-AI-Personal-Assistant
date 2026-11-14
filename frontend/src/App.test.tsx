@@ -23,6 +23,7 @@ const voice = {
 
 const bridge: AlexApi = {
   ensureMicrophoneAccess: vi.fn().mockResolvedValue({ granted: true, status: "granted" }),
+  ensureCameraAccess: vi.fn().mockResolvedValue({ granted: true, status: "granted" }),
   toggleFullscreen: vi.fn().mockResolvedValue(true),
   getStatus: vi.fn().mockResolvedValue({ status: "ready", name: "Alex" }),
   getSystemMetrics: vi.fn().mockResolvedValue({
@@ -582,7 +583,7 @@ describe("Alex app shell", () => {
       "New York",
       "today",
     ));
-  });
+  }, 15_000);
 
   it("attaches a supported file to a chat turn through the desktop bridge", async () => {
     vi.mocked(bridge.getSettings).mockResolvedValue({

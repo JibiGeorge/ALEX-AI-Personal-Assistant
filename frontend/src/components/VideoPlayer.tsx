@@ -72,8 +72,13 @@ function loadYouTubeIFrameApi(): Promise<void> {
         resolve();
       };
 
+      let count = 0;
       const poll = setInterval(() => {
-        if (window.YT && window.YT.Player) {
+        count++;
+        if (typeof window !== "undefined" && (window as any).YT && (window as any).YT.Player) {
+          clearInterval(poll);
+          resolve();
+        } else if (count > 50 || typeof window === "undefined") {
           clearInterval(poll);
           resolve();
         }

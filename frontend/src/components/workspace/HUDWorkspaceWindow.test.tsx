@@ -15,6 +15,9 @@ describe("HUDWorkspaceWindow (ALEX Step 6 — Universal HUD Workspace Content In
     globalMockStream = {
       getTracks: vi.fn().mockReturnValue([globalMockTrack]),
     };
+    (window as any).alex = {
+      ensureCameraAccess: vi.fn().mockResolvedValue({ granted: true, status: "granted" }),
+    };
     Object.defineProperty(navigator, "mediaDevices", {
       value: {
         getUserMedia: vi.fn().mockResolvedValue(globalMockStream),

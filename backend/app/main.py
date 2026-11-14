@@ -43,6 +43,8 @@ from app.actions.builtins.topic_monitor import register_topic_monitor_actions
 from app.actions.builtins.proactive import register_proactive_actions
 from app.actions.builtins.flight_finder import register_flight_actions
 from app.actions.builtins.game_updater import register_game_updater_actions
+from app.actions.builtins.job_hunting import register_job_hunting_actions
+from app.api.job_hunting_routes import router as job_hunting_router
 from app.core.config import RuntimeSettings, get_runtime_settings
 from app.core.logging_config import configure_logging
 from app.core.security import ApiTokenMiddleware
@@ -81,6 +83,8 @@ from app.services.topic_monitor_service import TopicMonitorService
 from app.services.proactive_service import ProactiveEngine
 from app.services.flight_finder_service import FlightFinderService
 from app.services.game_updater_service import GameUpdaterService
+from app.services.job_hunting import JobHuntingService
+from app.services.model_ladder_service import model_ladder_service
 from app.services.plugin_loader_service import PluginLoaderService
 from app.services.voice_lifecycle_manager import VoiceLifecycleManager
 
@@ -188,6 +192,13 @@ def create_app(
         application.state.system_metrics_service,
         application.state.system_monitor_service,
     )
+    application.state.job_hunting_service = JobHuntingService(
+        data_dir=resolved_data_dir,
+        settings_service=application.state.settings_service,
+        document_parser_service=application.state.document_parser_service,
+        web_search_service=application.state.web_search_service,
+        model_ladder_service=model_ladder_service,
+    )
     action_registry = ActionRegistry()
     register_system_actions(action_registry, application.state.system_metrics_service)
     register_memory_actions(action_registry, application.state.memory_service)
@@ -211,6 +222,7 @@ def create_app(
     register_proactive_actions(action_registry, application.state.proactive_engine)
     register_flight_actions(action_registry, application.state.flight_finder_service)
     register_game_updater_actions(action_registry, application.state.game_updater_service)
+    register_job_hunting_actions(action_registry, application.state.job_hunting_service)
     application.state.plugin_loader_service.discover_and_register(action_registry)
     application.state.action_registry = action_registry
     application.state.action_executor = ActionExecutor(action_registry)
@@ -251,6 +263,7 @@ def create_app(
     )
     application.add_middleware(ApiTokenMiddleware)
     application.include_router(router)
+    application.include_router(job_hunting_router)
 
     @application.post("/api/upload")
     async def legacy_upload_alias(req: Request):

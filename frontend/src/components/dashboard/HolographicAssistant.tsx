@@ -135,7 +135,7 @@ export function HolographicAssistant({
       {/* Main Center Entity: Intelligent Dynamic Assistant Avatar (Normal: Center / Workspace: Bottom-Right) */}
       <div
         className={`hud-avatar-stage ${
-          isWorkspaceActive ? "in-workspace-mode" : ""
+          isWorkspaceActive ? "in-workspace-mode is-docked" : ""
         } diag-phase-${diagnosticPhase}`}
         data-diag-phase={diagnosticPhase}
       >

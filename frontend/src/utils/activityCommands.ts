@@ -173,11 +173,30 @@ export function parseMediaCommand(input: string): MediaCommandResult {
     return { isPlay: true, isClose: false, source: "youtube", title: "YouTube" };
   }
 
+  // System keywords that must NEVER trigger YouTube video playback
+  const systemKeywords = [
+    "camera",
+    "webcam",
+    "job hunting",
+    "job search",
+    "career radar",
+    "career hub",
+    "jobs",
+    "settings",
+    "memory",
+    "reminders",
+    "actions",
+    "computer",
+    "activity log",
+    "logs",
+  ];
+
   // Play <query> on YouTube (e.g. "play dune trailer on youtube on the hud")
   const playQueryMatch = cleaned.match(/^(?:play|watch|open|show)\s+(.+?)\s+on\s+youtube(?:\s+on\s+(?:the\s+)?(?:hud|screen|display))?$/i);
   if (playQueryMatch && playQueryMatch[1]) {
     const query = playQueryMatch[1].trim();
-    if (query.toLowerCase() !== "camera" && query.toLowerCase() !== "webcam") {
+    const lowerQuery = query.toLowerCase();
+    if (!systemKeywords.some((kw) => lowerQuery === kw || lowerQuery.includes(kw))) {
       return { isPlay: true, isClose: false, source: query, title: query };
     }
   }
@@ -187,12 +206,7 @@ export function parseMediaCommand(input: string): MediaCommandResult {
   if (playHudMatch && playHudMatch[1]) {
     const query = playHudMatch[1].trim();
     const lowerQuery = query.toLowerCase();
-    if (
-      lowerQuery !== "camera" &&
-      lowerQuery !== "webcam" &&
-      !lowerQuery.includes("camera") &&
-      !lowerQuery.includes("webcam")
-    ) {
+    if (!systemKeywords.some((kw) => lowerQuery === kw || lowerQuery.includes(kw))) {
       return { isPlay: true, isClose: false, source: query, title: query };
     }
   }

@@ -87,6 +87,11 @@ describe("activityCommands", () => {
       expect(parseMediaCommand("open camera on hud display").isPlay).toBe(false);
       expect(parseMediaCommand("open camera on the hud").isPlay).toBe(false);
       expect(parseMediaCommand("open camera on hud").isPlay).toBe(false);
+      expect(parseMediaCommand("open job hunting on hud").isPlay).toBe(false);
+      expect(parseMediaCommand("Alex, open job hunting on hud").isPlay).toBe(false);
+      expect(parseMediaCommand("show job hunting on the hud").isPlay).toBe(false);
+      expect(parseMediaCommand("open settings on hud").isPlay).toBe(false);
+      expect(parseMediaCommand("career radar on hud").isPlay).toBe(false);
     });
   });
 });

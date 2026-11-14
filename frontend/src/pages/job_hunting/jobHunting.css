@@ -1,0 +1,589 @@
+/* ==========================================================================
+   ALEX HUD JOB HUNTING MODULE STYLES
+   ========================================================================== */
+
+.jh-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  color: var(--hud-text-primary);
+  background: var(--hud-bg);
+  font-family: var(--hud-font-sans);
+  overflow: hidden;
+}
+
+/* Sub-Navigation Bar */
+.jh-nav-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(6, 20, 28, 0.95);
+  border-bottom: 1px solid var(--hud-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.jh-nav-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.jh-nav-bar::-webkit-scrollbar-thumb {
+  background: var(--hud-accent-secondary);
+  border-radius: 2px;
+}
+
+.jh-nav-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--hud-text-secondary);
+  font-family: var(--hud-font-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.jh-nav-item:hover {
+  color: var(--hud-accent);
+  background: rgba(0, 217, 255, 0.08);
+  border-color: rgba(0, 217, 255, 0.2);
+}
+
+.jh-nav-item.active {
+  color: #020B10;
+  background: var(--hud-accent);
+  border-color: var(--hud-accent);
+  font-weight: 700;
+  box-shadow: 0 0 12px rgba(0, 217, 255, 0.4);
+}
+
+.jh-nav-item .jh-badge-count {
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-size: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  color: inherit;
+}
+
+/* Main View Container */
+.jh-view-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 20px;
+  background: radial-gradient(circle at 50% 0%, rgba(0, 217, 255, 0.04) 0%, transparent 60%);
+}
+
+/* Header & Telemetry */
+.jh-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(20, 53, 71, 0.6);
+}
+
+.jh-header-titles h2 {
+  margin: 0;
+  color: var(--hud-accent);
+  font-family: var(--hud-font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.jh-header-titles p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--hud-text-secondary);
+}
+
+.jh-telemetry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--hud-border);
+  border-radius: 4px;
+  background: var(--hud-panel);
+  font-family: var(--hud-font-mono);
+  font-size: 11px;
+  color: var(--hud-accent-secondary);
+}
+
+.jh-telemetry-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--hud-success);
+  box-shadow: 0 0 6px var(--hud-success);
+}
+
+/* Stat Grid */
+.jh-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.jh-stat-card {
+  padding: 14px;
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  background: var(--hud-panel);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.jh-stat-card:hover {
+  border-color: rgba(0, 217, 255, 0.4);
+}
+
+.jh-stat-card::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--hud-accent);
+}
+
+.jh-stat-label {
+  font-family: var(--hud-font-mono);
+  font-size: 11px;
+  color: var(--hud-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.jh-stat-value {
+  margin-top: 6px;
+  font-family: var(--hud-font-mono);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--hud-text-primary);
+}
+
+.jh-stat-hint {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--hud-text-secondary);
+}
+
+/* Form Controls & Inputs */
+.jh-form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.jh-input-group {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.jh-input-group label {
+  font-family: var(--hud-font-mono);
+  font-size: 11px;
+  color: var(--hud-text-secondary);
+  text-transform: uppercase;
+}
+
+.jh-input,
+.jh-select,
+.jh-textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--hud-border);
+  border-radius: 4px;
+  background: var(--hud-bg-secondary);
+  color: var(--hud-text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.jh-input:focus,
+.jh-select:focus,
+.jh-textarea:focus {
+  border-color: var(--hud-accent);
+  box-shadow: 0 0 8px rgba(0, 217, 255, 0.2);
+}
+
+.jh-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* Buttons */
+.jh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-family: var(--hud-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.jh-btn-primary {
+  background: var(--hud-accent);
+  color: #020B10;
+  box-shadow: 0 0 12px rgba(0, 217, 255, 0.3);
+}
+
+.jh-btn-primary:hover:not(:disabled) {
+  background: #33e1ff;
+  box-shadow: 0 0 16px rgba(0, 217, 255, 0.5);
+}
+
+.jh-btn-secondary {
+  background: var(--hud-panel-raised);
+  border-color: var(--hud-border);
+  color: var(--hud-text-primary);
+}
+
+.jh-btn-secondary:hover:not(:disabled) {
+  border-color: var(--hud-accent);
+  color: var(--hud-accent);
+}
+
+.jh-btn-success {
+  background: var(--hud-success);
+  color: #020B10;
+}
+
+.jh-btn-danger {
+  background: rgba(255, 83, 100, 0.15);
+  border-color: var(--hud-error);
+  color: var(--hud-error);
+}
+
+.jh-btn-danger:hover:not(:disabled) {
+  background: var(--hud-error);
+  color: #fff;
+}
+
+.jh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Cards & Lists */
+.jh-card {
+  padding: 16px;
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  background: var(--hud-panel);
+  margin-bottom: 12px;
+  transition: all 0.15s ease;
+}
+
+.jh-card:hover {
+  border-color: rgba(0, 217, 255, 0.35);
+}
+
+.jh-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.jh-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--hud-text-primary);
+}
+
+.jh-card-company {
+  font-size: 12px;
+  color: var(--hud-accent);
+  margin-top: 2px;
+}
+
+.jh-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--hud-text-secondary);
+  margin-top: 6px;
+}
+
+/* Badges & Chips */
+.jh-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--hud-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 1px solid var(--hud-border);
+  background: var(--hud-bg-secondary);
+  color: var(--hud-text-secondary);
+}
+
+.jh-badge-match-high {
+  border-color: var(--hud-success);
+  color: var(--hud-success);
+  background: rgba(32, 214, 160, 0.12);
+  box-shadow: 0 0 8px rgba(32, 214, 160, 0.2);
+}
+
+.jh-badge-match-med {
+  border-color: var(--hud-warning);
+  color: var(--hud-warning);
+  background: rgba(255, 181, 71, 0.12);
+}
+
+.jh-badge-match-low {
+  border-color: var(--hud-error);
+  color: var(--hud-error);
+  background: rgba(255, 83, 100, 0.12);
+}
+
+.jh-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.jh-tag {
+  padding: 2px 7px;
+  border-radius: 3px;
+  background: rgba(0, 217, 255, 0.08);
+  border: 1px solid rgba(0, 217, 255, 0.2);
+  color: var(--hud-accent);
+  font-size: 11px;
+  font-family: var(--hud-font-mono);
+}
+
+.jh-tag-missing {
+  background: rgba(255, 181, 71, 0.08);
+  border-color: rgba(255, 181, 71, 0.25);
+  color: var(--hud-warning);
+}
+
+/* Score Breakdown Gauge & Bars */
+.jh-score-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.jh-score-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-family: var(--hud-font-mono);
+}
+
+.jh-score-bar-label {
+  width: 180px;
+  color: var(--hud-text-secondary);
+  display: flex;
+  justify-content: space-between;
+}
+
+.jh-score-bar-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(20, 53, 71, 0.6);
+  overflow: hidden;
+}
+
+.jh-score-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--hud-accent-secondary), var(--hud-accent));
+  transition: width 0.3s ease;
+}
+
+.jh-score-bar-value {
+  width: 40px;
+  text-align: right;
+  color: var(--hud-accent);
+  font-weight: 700;
+}
+
+/* Resume & Studio Editor */
+.jh-studio-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  height: calc(100vh - 280px);
+  min-height: 480px;
+}
+
+.jh-editor-pane,
+.jh-preview-pane {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hud-border);
+  border-radius: 6px;
+  background: var(--hud-panel);
+  overflow: hidden;
+}
+
+.jh-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--hud-bg-secondary);
+  border-bottom: 1px solid var(--hud-border);
+  font-family: var(--hud-font-mono);
+  font-size: 11px;
+  color: var(--hud-accent-secondary);
+}
+
+.jh-pane-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.jh-code-editor {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--hud-text-primary);
+  font-family: var(--hud-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+
+.jh-markdown-rendered {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--hud-text-primary);
+}
+
+.jh-markdown-rendered h1 {
+  font-size: 16px;
+  color: var(--hud-accent);
+  border-bottom: 1px solid var(--hud-border);
+  padding-bottom: 4px;
+}
+
+.jh-markdown-rendered h2 {
+  font-size: 13.5px;
+  color: var(--hud-accent-secondary);
+  margin-top: 14px;
+}
+
+.jh-markdown-rendered h3 {
+  font-size: 12px;
+  color: var(--hud-text-primary);
+  margin-top: 10px;
+}
+
+.jh-markdown-rendered ul {
+  padding-left: 18px;
+}
+
+.jh-markdown-rendered li {
+  margin-bottom: 4px;
+}
+
+/* Modal Confirmation Dialog */
+.jh-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 11, 16, 0.85);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.jh-dialog-box {
+  width: min(520px, 94%);
+  background: var(--hud-panel);
+  border: 1px solid var(--hud-border);
+  border-radius: 8px;
+  box-shadow: 0 0 40px rgba(0, 217, 255, 0.2), 0 20px 50px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+.jh-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--hud-bg-secondary);
+  border-bottom: 1px solid var(--hud-border);
+  color: var(--hud-accent);
+  font-family: var(--hud-font-mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.jh-dialog-body {
+  padding: 16px;
+  font-size: 12.5px;
+  color: var(--hud-text-primary);
+  line-height: 1.5;
+}
+
+.jh-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--hud-bg-secondary);
+  border-top: 1px solid var(--hud-border);
+}
+
+/* Responsive Overrides */
+@media (max-width: 900px) {
+  .jh-studio-grid {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+}
+

@@ -200,6 +200,41 @@ describe("workspaceCommands parser", () => {
     expect(cam8.action).toBe("close");
   });
 
+  it("recognizes Job Hunting and Career Radar commands for the HUD", () => {
+    // 1. "Alex, open job hunting on hud"
+    const jh1 = parseWorkspaceCommand("Alex, open job hunting on hud");
+    expect(jh1.isWorkspaceCommand).toBe(true);
+    expect(jh1.action).toBe("open");
+    expect(jh1.panel).toBe("job_hunting");
+    expect(jh1.activityType).toBeUndefined(); // Must NOT be video!
+
+    // 2. "open job hunting"
+    const jh2 = parseWorkspaceCommand("open job hunting");
+    expect(jh2.isWorkspaceCommand).toBe(true);
+    expect(jh2.action).toBe("open");
+    expect(jh2.panel).toBe("job_hunting");
+
+    // 3. "show job hunting"
+    const jh3 = parseWorkspaceCommand("show job hunting");
+    expect(jh3.isWorkspaceCommand).toBe(true);
+    expect(jh3.panel).toBe("job_hunting");
+
+    // 4. "job hunting on hud"
+    const jh4 = parseWorkspaceCommand("job hunting on hud");
+    expect(jh4.isWorkspaceCommand).toBe(true);
+    expect(jh4.panel).toBe("job_hunting");
+
+    // 5. "career radar"
+    const jh5 = parseWorkspaceCommand("Alex, career radar");
+    expect(jh5.isWorkspaceCommand).toBe(true);
+    expect(jh5.panel).toBe("job_hunting");
+
+    // 6. "open settings"
+    const setCmd = parseWorkspaceCommand("open settings on hud");
+    expect(setCmd.isWorkspaceCommand).toBe(true);
+    expect(setCmd.panel).toBe("settings");
+  });
+
   it("does not match unrelated commands", () => {
     expect(parseWorkspaceCommand("what is the weather today").isWorkspaceCommand).toBe(false);
     expect(parseWorkspaceCommand("").isWorkspaceCommand).toBe(false);

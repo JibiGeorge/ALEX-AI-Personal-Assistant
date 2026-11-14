@@ -23,6 +23,7 @@ const mockVoice = {
 
 const mockBridge: Partial<AlexApi> = {
   ensureMicrophoneAccess: vi.fn().mockResolvedValue({ granted: true, status: "granted" }),
+  ensureCameraAccess: vi.fn().mockResolvedValue({ granted: true, status: "granted" }),
   toggleFullscreen: vi.fn().mockResolvedValue(true),
   getStatus: vi.fn().mockResolvedValue({ status: "ready", name: "Alex" }),
   getSettings: vi.fn().mockResolvedValue({

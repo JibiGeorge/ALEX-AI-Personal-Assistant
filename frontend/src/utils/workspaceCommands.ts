@@ -9,6 +9,7 @@ export interface WorkspaceCommandResult {
   isWorkspaceCommand: boolean;
   action: "open" | "close" | "pause" | "resume" | "minimize" | "restore" | "none";
   activityType?: WorkspaceActivityType;
+  panel?: "overview" | "chat" | "memory" | "settings" | "search" | "audio" | "reminders" | "actions" | "computer" | "job_hunting";
   query?: string;
   source?: string;
   title?: string;
@@ -18,7 +19,9 @@ function cleanInput(input: string): string {
   return (input || "")
     .trim()
     .toLowerCase()
+    .replace(/^(?:me|user|human)[:\s]+/i, "")
     .replace(/^(?:alex|hey alex|jarvis|computer)[,\s]+/i, "")
+    .replace(/^(?:yeah|yes|ok|okay|hey|hi|please|can you|could you|would you)[,\s]+/i, "")
     .replace(/[.,/#!$%^&*;:{}=\-_`~()?'"]/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -131,6 +134,43 @@ export function parseWorkspaceCommand(input: string): WorkspaceCommandResult {
       action: "open",
       activityType: "camera",
       title: "Optical Sensor Feed",
+    };
+  }
+
+  // 4. Job Hunting & Career Radar HUD panel commands
+  if (
+    /^(?:open|show|launch|start|display|view|switch to|access)\s+(?:the\s+)?(?:job\s+hunting|career\s+radar|career\s+hub|job\s+search|job\s+hunter|career)(?:\s+(?:on|in|to)\s+(?:the\s+)?(?:hud|dashboard|screen|workspace))?$/i.test(cleaned) ||
+    /^(?:job\s+hunting|career\s+radar|career\s+hub|job\s+hunter)(?:\s+(?:on|in|to)\s+(?:the\s+)?(?:hud|dashboard|screen|workspace))?$/i.test(cleaned) ||
+    cleaned === "open job hunting" ||
+    cleaned === "open job hunting on hud" ||
+    cleaned === "job hunting on hud" ||
+    cleaned === "job hunting" ||
+    cleaned === "career radar" ||
+    cleaned === "career hub"
+  ) {
+    return {
+      isWorkspaceCommand: true,
+      action: "open",
+      panel: "job_hunting",
+      title: "Job Hunting & Career Radar",
+    };
+  }
+
+  // 5. Other system HUD panels
+  if (
+    /^(?:open|show|launch|display|view|access)\s+(?:the\s+)?(?:settings|customise|customize|audio devices|memory|reminders|actions|computer control)(?:\s+(?:on|in|to)\s+(?:the\s+)?(?:hud|dashboard|screen))?$/i.test(cleaned)
+  ) {
+    let targetPanel: WorkspaceCommandResult["panel"] = "overview";
+    if (cleaned.includes("setting") || cleaned.includes("custom")) targetPanel = "settings";
+    else if (cleaned.includes("audio")) targetPanel = "audio";
+    else if (cleaned.includes("memory")) targetPanel = "memory";
+    else if (cleaned.includes("reminder")) targetPanel = "reminders";
+    else if (cleaned.includes("action")) targetPanel = "actions";
+    else if (cleaned.includes("computer")) targetPanel = "computer";
+    return {
+      isWorkspaceCommand: true,
+      action: "open",
+      panel: targetPanel,
     };
   }
 
@@ -257,12 +297,23 @@ export function parseWorkspaceCommand(input: string): WorkspaceCommandResult {
   if (videoMatch && videoMatch[1]) {
     const title = videoMatch[1].trim();
     const lowerTitle = title.toLowerCase();
-    if (
-      lowerTitle !== "camera" &&
-      lowerTitle !== "webcam" &&
-      !lowerTitle.includes("camera") &&
-      !lowerTitle.includes("webcam")
-    ) {
+    const systemKeywords = [
+      "camera",
+      "webcam",
+      "job hunting",
+      "job search",
+      "career radar",
+      "career hub",
+      "jobs",
+      "settings",
+      "memory",
+      "reminders",
+      "actions",
+      "computer",
+      "activity log",
+      "logs",
+    ];
+    if (!systemKeywords.some((kw) => lowerTitle === kw || lowerTitle.includes(kw))) {
       return {
         isWorkspaceCommand: true,
         action: "open",

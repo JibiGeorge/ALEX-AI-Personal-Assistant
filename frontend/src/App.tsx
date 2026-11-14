@@ -22,6 +22,7 @@ import { WebSearchPage } from "./pages/WebSearchPage";
 import { RemindersPage } from "./pages/RemindersPage";
 import { ActionsPage } from "./pages/ActionsPage";
 import { ComputerControlPage } from "./pages/ComputerControlPage";
+import { JobHuntingPage } from "./pages/job_hunting/JobHuntingPage";
 import { alexApi } from "./services/alexApi";
 import type {
   ApiStatus,
@@ -37,7 +38,7 @@ import type {
   WakeStatusResponse,
 } from "./types/api";
 
-type PanelId = "overview" | "chat" | "memory" | "settings" | "search" | "audio" | "reminders" | "actions" | "computer";
+type PanelId = "overview" | "chat" | "memory" | "settings" | "search" | "audio" | "reminders" | "actions" | "computer" | "job_hunting";
 type ActivityKind = "SYS" | "YOU" | "ALEX" | "ERR";
 
 interface ActivityEntry {
@@ -199,6 +200,13 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
   const triggerBriefing = useCallback((cold: boolean = false) => {
     setBriefingCold(cold);
     setShowBriefing(true);
+    setSetupMenuOpen(false);
+    setControlsMenuOpen(false);
+  }, []);
+
+  const openPanel = useCallback((panel: PanelId) => {
+    setShowBriefing(false);
+    setActivePanel(panel);
     setSetupMenuOpen(false);
     setControlsMenuOpen(false);
   }, []);
@@ -592,6 +600,28 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
         return { handled: false };
       }
 
+      // 0. Open HUD Modal Panels (e.g. Job Hunting & Career Radar)
+      if (wsCmd.panel || (wsCmd.action === "open" && (wsCmd as any).activityType === "job_hunting")) {
+        const targetPanel = wsCmd.panel || "job_hunting";
+        openPanel(targetPanel);
+        const panelNames: Record<string, string> = {
+          job_hunting: "Job Hunting & Career Radar",
+          settings: "Customise Assistant",
+          memory: "Personal Memory",
+          reminders: "Reminders",
+          actions: "Actions",
+          computer: "Computer Control",
+          search: "Web Search",
+          audio: "Audio Devices",
+          chat: "Conversation",
+          overview: "Overview Dashboard",
+        };
+        const displayName = panelNames[targetPanel] || targetPanel;
+        const reply = `Opened ${displayName} on the HUD.`;
+        addActivity("ALEX", reply);
+        return { handled: true, replyText: reply };
+      }
+
       // 1. Close Workspace / Return to Normal Mode
       if (wsCmd.action === "close") {
         const hadActive = Boolean(activeWorkspaceRef.current || activeMediaRef.current);
@@ -797,7 +827,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
 
       return { handled: false };
     },
-    [addActivity, handleCloseMedia, handlePlayMedia, openFileInWorkspace]
+    [addActivity, handleCloseMedia, handlePlayMedia, openFileInWorkspace, openPanel]
   );
 
   const onVoiceTranscript = useCallback(
@@ -1719,13 +1749,6 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
           ? "listening"
           : "idle";
 
-  function openPanel(panel: PanelId) {
-    setShowBriefing(false);
-    setActivePanel(panel);
-    setSetupMenuOpen(false);
-    setControlsMenuOpen(false);
-  }
-
   function toggleDrawer(drawer: "setup" | "controls") {
     setShowBriefing(false);
     if (drawer === "setup") {
@@ -1843,6 +1866,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
           <button onClick={() => openPanel("reminders")} type="button"><span>◷</span> REMINDERS</button>
           <button onClick={() => openPanel("actions")} type="button"><span>⚡</span> ACTIONS</button>
           <button onClick={() => openPanel("computer")} type="button"><span>⌖</span> COMPUTER CONTROL</button>
+          <button onClick={() => openPanel("job_hunting")} type="button"><span>💼</span> JOB HUNTING &amp; CAREER</button>
           <button disabled title="No concrete plugin modules were supplied in the source checkout" type="button"><span>🧩</span> PLUGINS · SOURCE MISSING</button>
           <button disabled title="Plugin settings require migrated plugin implementations" type="button"><span>⚙</span> PLUGIN SETTINGS · UNAVAILABLE</button>
           <button disabled title="Provider selection and alternate provider adapters are not migrated yet" type="button"><span>🔌</span> ENGINE &amp; PROVIDERS · NOT MIGRATED</button>
@@ -1855,6 +1879,15 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
         <nav className="hud-drawer hud-controls-drawer" aria-label="Controls">
           <div className="hud-section-label">▸ CONTROLS · EVERYDAY SWITCHES</div>
           <button onClick={() => void toggleFullscreen()} type="button"><span>⛶</span> FULLSCREEN [F11]</button>
+          <button
+            onClick={() => {
+              openPanel("job_hunting");
+              setControlsMenuOpen(false);
+            }}
+            type="button"
+          >
+            <span>💼</span> JOB HUNTING RADAR
+          </button>
           <button
             onClick={() => {
               setActivityOpen(true);
@@ -2010,7 +2043,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
             <header className="hud-modal-header">
               <div>
                 <div className="hud-section-label">▸ ALEX CONTROL PANEL</div>
-                <strong>{activePanel === "settings" ? "CUSTOMISE ASSISTANT" : activePanel === "memory" ? "PERSONAL MEMORY" : activePanel === "search" ? "WEB SEARCH" : activePanel === "audio" ? "AUDIO DEVICES" : activePanel === "reminders" ? "REMINDERS" : activePanel === "actions" ? "ACTIONS" : activePanel === "computer" ? "COMPUTER CONTROL" : "CONVERSATION"}</strong>
+                <strong>{activePanel === "settings" ? "CUSTOMISE ASSISTANT" : activePanel === "job_hunting" ? "JOB HUNTING & CAREER RADAR" : activePanel === "memory" ? "PERSONAL MEMORY" : activePanel === "search" ? "WEB SEARCH" : activePanel === "audio" ? "AUDIO DEVICES" : activePanel === "reminders" ? "REMINDERS" : activePanel === "actions" ? "ACTIONS" : activePanel === "computer" ? "COMPUTER CONTROL" : "CONVERSATION"}</strong>
               </div>
               <button aria-label="Close panel" onClick={() => openPanel("overview")} type="button">×</button>
             </header>
@@ -2044,6 +2077,11 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
                   apiKeyConfigured={settings?.api_key_configured ?? false}
                   onOpenSettings={() => openPanel("settings")}
                   onError={(text) => setNotice({ kind: "error", text })}
+                />
+              ) : activePanel === "job_hunting" ? (
+                <JobHuntingPage
+                  onError={(text) => setNotice({ kind: "error", text })}
+                  onOpenSettings={() => openPanel("settings")}
                 />
               ) : (
                 <ConversationPage

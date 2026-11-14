@@ -3639,7 +3639,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .hud-modal-backdrop,
 .setup-backdrop {
   position: absolute;
-  z-index: 30;
+  z-index: 1000;
   inset: 56px 0 28px;
   display: grid;
   place-items: center;
@@ -3665,6 +3665,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .hud-modal-chat {
   width: min(960px, 98%);
   height: min(720px, 100%);
+}
+
+.hud-modal-job_hunting {
+  width: min(1200px, 98%);
+  height: min(880px, 95vh);
 }
 
 .hud-modal-header {
@@ -4058,9 +4063,36 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .hud-body { grid-template-columns: minmax(0, 1fr); }
   .hud-monitor { display: none; }
   .hud-activity { display: none; }
-  .hud-header { grid-template-columns: 1fr 1fr; }
-  .hud-title { display: none; }
-  .hud-clock { grid-column: 2; grid-row: 1; }
+  .hud-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    height: auto;
+    min-height: 48px;
+    padding: 6px 12px;
+  }
+  .hud-title {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    order: 3;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .hud-title strong {
+    font-size: 13px;
+  }
+  .hud-title-sub {
+    font-size: 10px;
+  }
+  .hud-activity-ticker-pill {
+    max-width: 90vw;
+  }
+  .hud-clock {
+    font-size: 12px;
+  }
   .hud-center-foot { flex-direction: column; align-items: center; gap: 6px; }
   .voice-pending { display: none; }
 }

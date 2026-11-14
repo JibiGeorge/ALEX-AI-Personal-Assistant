@@ -121,6 +121,7 @@ export function CommandInput({
             </div>
             <input
               aria-label="Command or question"
+              className="hud-command-input"
               disabled={!apiKeyConfigured || chatBusy}
               maxLength={4000}
               onChange={(event) => onCommandChange(event.target.value)}

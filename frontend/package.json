@@ -11,6 +11,7 @@
     "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json && vite build",
     "build:backend": "bash ../scripts/build-backend.sh",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "test:packaging": "node --test ../scripts/verify-sidecar.test.mjs",
     "verify:sidecar": "node ../scripts/verify-sidecar.mjs",
     "preview": "vite preview --host 127.0.0.1",
@@ -24,6 +25,7 @@
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/vite": "^4.1.11",
     "@testing-library/jest-dom": "^6.6.4",
     "@testing-library/react": "^16.3.0",
@@ -71,7 +73,11 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "ALEX requires microphone access for voice communication.",
+        "NSCameraUsageDescription": "ALEX requires camera access for the live optical sensor HUD feed."
+      }
     },
     "linux": {
       "target": [

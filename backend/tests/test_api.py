@@ -287,8 +287,20 @@ def test_action_registry_discovery_execution_confirmation_and_disable(client):
         "conversation.proactive_check",
         "travel.flights",
         "game.update",
+        "job_search",
+        "job_analyse",
+        "job_match_resume",
+        "job_prepare_application",
+        "job_list_approvals",
+        "job_track_application",
+        "job_list_interviews",
+        "job_hunting.discover",
+        "job_hunting.match",
+        "job_hunting.tailor_resume",
+        "job_hunting.submit_application",
     } == set(actions)
     assert actions["system.get_metrics"]["enabled"] is True
+    assert actions["job_hunting.submit_application"]["requires_confirmation"] is True
     assert actions["browser.control"]["requires_confirmation"] is True
     assert actions["system.setting"]["requires_confirmation"] is False
     assert actions["dev.agent"]["requires_confirmation"] is True

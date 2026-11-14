@@ -110,17 +110,33 @@ export function HUDWorkspaceWindow({
     const startCamera = async () => {
       setCameraError(null);
       try {
+        if (typeof window !== "undefined" && window.alex?.ensureCameraAccess) {
+          try {
+            await window.alex.ensureCameraAccess();
+          } catch (bridgeErr) {
+            console.warn("Could not query camera access via desktop bridge:", bridgeErr);
+          }
+        }
         if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
           throw new Error("Hardware video capture is not supported in this environment.");
         }
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "user",
-          },
-          audio: false,
-        });
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+              facingMode: "user",
+            },
+            audio: false,
+          });
+        } catch (constraintErr) {
+          // Fallback to generic video capture if specific resolution or facingMode constraints fail
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
 
         if (!isMounted) {
           stream.getTracks().forEach((track) => track.stop());
