@@ -9,7 +9,6 @@ import { ApplicationHeader } from "./components/dashboard/ApplicationHeader";
 import { SystemMonitor } from "./components/dashboard/SystemMonitor";
 import { HolographicAssistant } from "./components/dashboard/HolographicAssistant";
 import { ActivityDrawer } from "./components/dashboard/ActivityDrawer";
-import { FileUpload } from "./components/dashboard/FileUpload";
 import { CommandInput } from "./components/dashboard/CommandInput";
 import { isActivityLogCloseCommand, isActivityLogOpenCommand, parseMediaCommand } from "./utils/activityCommands";
 import { parseWorkspaceCommand } from "./utils/workspaceCommands";
@@ -219,7 +218,8 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [metricsUnavailable, setMetricsUnavailable] = useState(false);
-  const [metricsError, setMetricsError] = useState<string | null>(null);
+  const [_metricsError, setMetricsError] = useState<string | null>(null);
+  const [systemMonitorOpen, setSystemMonitorOpen] = useState(true);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const alexResponses = useMemo(() => {
     return activity
@@ -1646,7 +1646,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
     }
   }
 
-  function onFileDrop(event: DragEvent<HTMLLabelElement>) {
+  function onFileDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (file) void readSelectedFile(file);
@@ -1798,6 +1798,8 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
             : ""
         }`}
         style={theme}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={onFileDrop}
       >
       <header className="hud-top-region">
         <ApplicationHeader
@@ -1814,42 +1816,38 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
           activityOpen={activityOpen}
           onToggleActivity={() => setActivityOpen((prev) => !prev)}
           geminiStatus={geminiStatus}
+          voiceActive={voice.active}
+          systemMonitorOpen={systemMonitorOpen}
+          onToggleSystemMonitor={() => setSystemMonitorOpen((prev) => !prev)}
           latestActivity={activity.length > 0 ? activity[activity.length - 1] : null}
         />
 
-        <div className="hud-top-telemetry-row">
-          <SystemMonitor
-            metrics={metrics}
-            status={status}
-            voiceActive={voice.active}
-            apiKeyConfigured={settings?.api_key_configured ?? false}
-            osShort={osShort}
-            uptimeFormatted={metrics ? formatUptime(metrics.uptime_seconds) : "--:--"}
-            isRevealed={isDashboardVisible && revealStep >= 2}
-            geminiStatus={geminiStatus}
-            geminiModel={geminiModel}
-            compact={true}
-          />
-
-          <FileUpload
-            selectedFile={selectedFile}
-            fileBusy={fileBusy}
-            screenBusy={screenBusy}
-            apiKeyConfigured={settings?.api_key_configured ?? false}
-            metricsUnavailable={metricsUnavailable}
-            metricsError={metricsError}
-            onFileDrop={onFileDrop}
-            onFileSelect={(file) => void readSelectedFile(file)}
-            onCaptureScreen={() => void captureScreen()}
-            onRemoveFile={() => setSelectedFile(null)}
-            onOpenFileInWorkspace={(f) =>
-              openFileInWorkspace(f.attachment.name, f.attachment.mime_type, f.attachment.data_base64, f.size)
-            }
-            formatBytes={formatBytes}
-            isRevealed={isDashboardVisible && revealStep >= 5}
-            compact={true}
-          />
-        </div>
+        {systemMonitorOpen && (
+          <div className="hud-system-monitor-popover" role="dialog" aria-label="System Monitor Telemetry">
+            <SystemMonitor
+              metrics={metrics}
+              status={status}
+              voiceActive={voice.active}
+              apiKeyConfigured={settings?.api_key_configured ?? false}
+              osShort={osShort}
+              uptimeFormatted={metrics ? formatUptime(metrics.uptime_seconds) : "--:--"}
+              isRevealed={true}
+              geminiStatus={geminiStatus}
+              geminiModel={geminiModel}
+              compact={true}
+            />
+            <button
+              type="button"
+              className="stream-collapse-btn"
+              onClick={() => setSystemMonitorOpen(false)}
+              title="Close System Monitor telemetry popover"
+              aria-label="Close System Monitor"
+              style={{ marginLeft: 12, fontSize: 16 }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </header>
 
       {setupMenuOpen && (
@@ -2004,6 +2002,18 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
           geminiStatus={geminiStatus}
           geminiModel={geminiModel}
           alexResponses={alexResponses}
+          onSelectSuggestion={(suggestion) => {
+            if (suggestion === "Find jobs") {
+              openPanel("job_hunting");
+            } else if (suggestion === "Tailor my resume") {
+              openPanel("job_hunting");
+            } else if (suggestion === "System status") {
+              setSystemMonitorOpen(true);
+            } else {
+              setCommand(suggestion);
+              void sendChat(suggestion);
+            }
+          }}
         />
       </main>
 
@@ -2024,6 +2034,15 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
         onVoiceStop={() => void voice.stop()}
         onVoiceInterrupt={() => void voice.interrupt()}
         onOpenChat={() => openPanel("chat")}
+        onFileSelect={(file) => void readSelectedFile(file)}
+        onCaptureScreen={() => void captureScreen()}
+        onRemoveFile={() => setSelectedFile(null)}
+        onOpenFileInWorkspace={(f) =>
+          openFileInWorkspace(f.attachment.name, f.attachment.mime_type, f.attachment.data_base64, f.size)
+        }
+        fileBusy={fileBusy}
+        screenBusy={screenBusy}
+        formatBytes={formatBytes}
         isRevealed={isDashboardVisible && revealStep >= 6}
       />
 

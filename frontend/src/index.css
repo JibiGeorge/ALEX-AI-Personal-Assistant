@@ -332,23 +332,33 @@ h1 { margin: 9px 0 0; font-size: 22px; letter-spacing: -.55px; font-weight: 600;
 
 :root {
   font-family: var(--hud-font-sans);
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--hud-text-primary);
   background: var(--hud-bg);
-  --hud-bg: #020B10;
+
+  /* Semantic Color System */
+  --hud-primary: #00D9FF;             /* Cyan: Primary Action / Interactive / Focus */
+  --hud-accent: #00D9FF;
+  --hud-accent-secondary: #00AFC8;
+  --hud-success: #20D6A0;             /* Green: Live / Connected / Nominal */
+  --hud-warning: #FFB547;             /* Amber: Needs Attention / Pending */
+  --hud-danger: #FF5364;              /* Red: Destructive / Stop / Error */
+  --hud-error: #FF5364;
+
+  /* Surfaces & Structural Planes */
+  --hud-bg: #020B10;                  /* Deep void black base */
   --hud-bg-secondary: #06141C;
   --hud-panel: #091B24;
   --hud-panel-raised: #0E232E;
-  --hud-accent: #00D9FF;
-  --hud-accent-secondary: #00AFC8;
-  --hud-text-primary: #E6F7FC;
-  --hud-text-secondary: #8BAAB6;
-  --hud-text-muted: #56717D;
-  --hud-success: #20D6A0;
-  --hud-warning: #FFB547;
-  --hud-error: #FF5364;
   --hud-border: #143547;
   --hud-border-glow: rgba(0, 217, 255, 0.25);
-  --hud-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Typography & High-Contrast Text (WCAG AA Compliant >= 4.5:1 against dark backgrounds) */
+  --hud-text-primary: #E6F7FC;        /* High-contrast readable white-cyan */
+  --hud-text-secondary: #9EBDCA;      /* WCAG AA certified secondary text */
+  --hud-text-muted: #7394A3;          /* WCAG AA compliant muted text */
+  --hud-font-sans: Inter, Geist, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --hud-font-mono: "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
@@ -509,6 +519,79 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   color: var(--hud-text-muted);
   font-size: 10px;
   font-weight: 500;
+}
+
+.hud-header-right-zone {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.hud-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(0, 217, 255, 0.08);
+  border: 1px solid rgba(0, 217, 255, 0.28);
+  color: var(--hud-accent);
+  font-family: var(--hud-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.hud-tool-btn:hover {
+  background: rgba(0, 217, 255, 0.18);
+  border-color: var(--hud-accent);
+  box-shadow: 0 0 12px rgba(0, 217, 255, 0.3);
+}
+
+.hud-tool-btn.active {
+  background: rgba(0, 217, 255, 0.25);
+  border-color: var(--hud-accent);
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(0, 217, 255, 0.45);
+}
+
+.hud-tool-icon {
+  font-size: 13px;
+  color: var(--hud-success);
+}
+
+.hud-system-monitor-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 20px;
+  right: 20px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(4, 16, 26, 0.96);
+  border: 1px solid rgba(0, 217, 255, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 217, 255, 0.15);
+  backdrop-filter: blur(14px);
+  animation: monitor-popdown 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes monitor-popdown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ==========================================================================
@@ -7315,6 +7398,155 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   background: rgba(20, 53, 71, 0.6);
   color: rgba(255, 255, 255, 0.25);
   cursor: not-allowed;
+}
+
+/* Inline Attachment Icons inside Command Bar */
+.hud-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+}
+
+.hud-attach-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--hud-text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.hud-attach-btn:hover:not(:disabled) {
+  background: rgba(0, 217, 255, 0.12);
+  border-color: rgba(0, 217, 255, 0.3);
+  color: var(--hud-accent);
+}
+
+.hud-attach-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hud-attach-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.hud-hidden-file-input {
+  display: none;
+}
+
+/* Attached File Pill above command input */
+.hud-cmd-attached-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  margin-bottom: 6px;
+  border-radius: 6px;
+  background: rgba(0, 217, 255, 0.1);
+  border: 1px solid rgba(0, 217, 255, 0.35);
+  color: var(--hud-text-primary);
+  font-family: var(--hud-font-mono);
+  font-size: 11px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  max-width: fit-content;
+}
+
+.cmd-attached-icon {
+  font-size: 12px;
+  color: var(--hud-accent);
+}
+
+.cmd-attached-name {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.cmd-attached-open-btn {
+  background: rgba(0, 217, 255, 0.2);
+  border: 1px solid rgba(0, 217, 255, 0.4);
+  color: var(--hud-accent);
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.15s ease;
+}
+
+.cmd-attached-open-btn:hover {
+  background: var(--hud-accent);
+  color: #020B10;
+}
+
+.cmd-attached-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--hud-danger);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 4px;
+  cursor: pointer;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.cmd-attached-remove-btn:hover {
+  transform: scale(1.2);
+}
+
+/* Suggestion Chips in Holographic Centerpiece */
+.hud-suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  z-index: 5;
+}
+
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(6, 20, 28, 0.75);
+  border: 1px solid rgba(0, 217, 255, 0.28);
+  color: var(--hud-text-primary);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.hud-chip:hover {
+  background: rgba(0, 217, 255, 0.15);
+  border-color: var(--hud-accent);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 217, 255, 0.25);
+}
+
+.hud-chip:focus-visible {
+  outline: 2px solid var(--hud-accent);
+  outline-offset: 2px;
+}
+
+.hud-chip-icon {
+  font-size: 13px;
+  color: var(--hud-accent);
 }
 
 .hud-command-actions {

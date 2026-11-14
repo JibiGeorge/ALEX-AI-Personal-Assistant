@@ -42,6 +42,7 @@ export interface HolographicAssistantProps {
   diagnosticPhase?: string;
   isPanelActive?: boolean;
   alexResponses?: AlexResponseItem[];
+  onSelectSuggestion?: (suggestion: string) => void;
 }
 
 export function HolographicAssistant({
@@ -71,8 +72,9 @@ export function HolographicAssistant({
   analyserNode = null,
   onToggleHudStyle,
   geminiStatus,
-  geminiModel,
+  geminiModel: _geminiModel,
   alexResponses = [],
+  onSelectSuggestion,
 }: HolographicAssistantProps) {
   // Determine dynamic assistant status (Section 4)
   let assistantStatusText = "STANDING BY";
@@ -219,20 +221,55 @@ export function HolographicAssistant({
         )}
       </div>
 
-      {/* Futuristic Welcome Header & User Designation — hidden during startup diagnostics & workspace mode */}
+      {/* Futuristic Welcome Header & Contextual Suggestion Chips — hidden during startup diagnostics & workspace mode */}
       {!isStartupDiagnostics && !isWorkspaceActive && (
         <div className="hud-welcome-copy">
           <div className="hud-welcome-kicker">
-            {booting ? "SYSTEM BOOT SEQUENCE" : "LOCAL COGNITIVE CORE • READY"}
+            {booting ? "SYSTEM BOOT SEQUENCE" : "ALEX INTELLIGENCE SYSTEM • READY"}
           </div>
           <h1>
             {userName ? `WELCOME BACK, ${userName.toUpperCase()}` : "AT YOUR SERVICE"}
           </h1>
-          <p>
-            {chatBusy
-              ? "Analyzing neural request and formulating synthesis…"
-              : "Your assistant, your device, your control."}
-          </p>
+
+          {/* Contextual Suggestion Chips */}
+          <div className="hud-suggestion-chips" role="group" aria-label="Suggested Commands">
+            <button
+              type="button"
+              className="hud-chip"
+              onClick={() => onSelectSuggestion?.("Find jobs")}
+              title="Discover matching career vacancies"
+            >
+              <span className="hud-chip-icon" aria-hidden="true">💼</span>
+              <span>Find jobs</span>
+            </button>
+            <button
+              type="button"
+              className="hud-chip"
+              onClick={() => onSelectSuggestion?.("Tailor my resume")}
+              title="Tailor resume and optimize skills"
+            >
+              <span className="hud-chip-icon" aria-hidden="true">✍</span>
+              <span>Tailor my resume</span>
+            </button>
+            <button
+              type="button"
+              className="hud-chip"
+              onClick={() => onSelectSuggestion?.("Summarize my day")}
+              title="Get an executive briefing and schedule summary"
+            >
+              <span className="hud-chip-icon" aria-hidden="true">📋</span>
+              <span>Summarize my day</span>
+            </button>
+            <button
+              type="button"
+              className="hud-chip"
+              onClick={() => onSelectSuggestion?.("System status")}
+              title="Inspect system telemetry and resources"
+            >
+              <span className="hud-chip-icon" aria-hidden="true">⚡</span>
+              <span>System status</span>
+            </button>
+          </div>
 
           {/* Dynamic Audio Spectral Waveform */}
           <div className="hud-waveform" aria-hidden="true">
@@ -282,9 +319,9 @@ export function HolographicAssistant({
             </div>
           )}
 
-          <span className="voice-pending">
+          <span className="voice-pending" title="Voice connection status">
             {voiceActive
-              ? `GEMINI LIVE ACTIVE${geminiModel ? ` [${geminiModel.replace("models/", "")}]` : ""}`
+              ? "CLOUD VOICE LIVE"
               : geminiStatus === "POLICY 1008"
               ? "GEMINI: POLICY 1008 · REST MODE AVAILABLE"
               : apiKeyConfigured

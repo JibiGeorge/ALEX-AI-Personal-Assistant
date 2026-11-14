@@ -19,6 +19,13 @@ export interface CommandInputProps {
   isSpeaking?: boolean;
   hasError?: boolean;
   errorMessage?: string | null;
+  onFileSelect?: (file: File) => void;
+  onCaptureScreen?: () => void;
+  onRemoveFile?: () => void;
+  onOpenFileInWorkspace?: (file: SelectedFile) => void;
+  fileBusy?: boolean;
+  screenBusy?: boolean;
+  formatBytes?: (bytes: number) => string;
 }
 
 export type VoiceHUDState = "LISTENING" | "THINKING" | "RESPONDING" | "IDLE" | "ERROR";
@@ -41,6 +48,13 @@ export function CommandInput({
   isSpeaking = false,
   hasError = false,
   errorMessage = null,
+  onFileSelect,
+  onCaptureScreen,
+  onRemoveFile,
+  onOpenFileInWorkspace,
+  fileBusy = false,
+  screenBusy = false,
+  formatBytes,
 }: CommandInputProps) {
   // Determine reactive voice state
   let voiceState: VoiceHUDState = "IDLE";
@@ -107,15 +121,92 @@ export function CommandInput({
 
         {/* Attachment Pill if a file or capture is primed */}
         {selectedFile && (
-          <div className="hud-cmd-attached-badge">
-            <span className="cmd-attached-icon">📎</span>
-            <span>FILE PRIMED: {selectedFile.attachment.name}</span>
+          <div className="hud-cmd-attached-badge" role="status" aria-label="Attached file">
+            {selectedFile.previewUrl && (
+              <img
+                src={selectedFile.previewUrl}
+                alt="Screen capture preview"
+                className="cmd-attached-thumbnail"
+                style={{ width: 22, height: 22, objectFit: "cover", borderRadius: 3 }}
+              />
+            )}
+            <span className="cmd-attached-icon" aria-hidden="true">📎</span>
+            <span className="cmd-attached-name">
+              ATTACHED: {selectedFile.attachment.name} {formatBytes ? `· ${formatBytes(selectedFile.size)}` : ""}
+            </span>
+            {onOpenFileInWorkspace && (
+              <button
+                type="button"
+                className="cmd-attached-open-btn"
+                onClick={() => onOpenFileInWorkspace(selectedFile)}
+                title="View in HUD workspace"
+                aria-label="View attached file in HUD workspace"
+              >
+                OPEN
+              </button>
+            )}
+            {onRemoveFile && (
+              <button
+                type="button"
+                className="cmd-attached-remove-btn"
+                onClick={onRemoveFile}
+                title="Remove attachment"
+                aria-label="Remove attachment"
+              >
+                ✕
+              </button>
+            )}
           </div>
         )}
 
         <div className="hud-command-controls-row">
-          {/* 1. Text command input & 2. Send button */}
+          {/* 1. Text command input with inline attachment tools & 2. Send button */}
           <form className="hud-command-form" onSubmit={onSubmit}>
+            {/* Attachment Actions */}
+            <div className="hud-input-actions">
+              {onFileSelect && (
+                <label
+                  className="hud-attach-btn"
+                  htmlFor="hud-cmd-file-input"
+                  title="Drop file here or Click to Browse"
+                >
+                  <input
+                    id="hud-cmd-file-input"
+                    type="file"
+                    className="hud-hidden-file-input"
+                    accept=".aac,.csv,.flac,.gif,.jpeg,.jpg,.js,.jsx,.json,.m4a,.md,.mp3,.mp4,.mov,.ogg,.pdf,.png,.py,.ts,.tsx,.txt,.wav,.webm,.webp,.xml"
+                    disabled={!apiKeyConfigured || fileBusy || chatBusy}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      if (file) onFileSelect(file);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  <span className="hud-attach-icon" aria-hidden="true">
+                    {fileBusy ? "◌" : "📎"}
+                  </span>
+                  <span style={{ position: "absolute", width: 1, height: 1, padding: 0, margin: -1, overflow: "hidden", clip: "rect(0,0,0,0)", border: 0 }}>
+                    Drop file here or Click to Browse
+                  </span>
+                </label>
+              )}
+
+              {onCaptureScreen && (
+                <button
+                  type="button"
+                  className="hud-attach-btn"
+                  onClick={onCaptureScreen}
+                  disabled={!apiKeyConfigured || screenBusy || chatBusy}
+                  title="Choose one display, preview the capture, then send it with your message"
+                  aria-label="CAPTURE SCREEN"
+                >
+                  <span className="hud-attach-icon" aria-hidden="true">
+                    {screenBusy ? "◌" : "📷"}
+                  </span>
+                </button>
+              )}
+            </div>
+
             <div className="hud-input-prefix">
               <span className="hud-prompt-glyph">❯</span>
             </div>
