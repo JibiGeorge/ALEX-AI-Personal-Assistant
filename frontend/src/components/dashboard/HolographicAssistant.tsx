@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { VisualizationManager } from "../avatar/VisualizationManager";
 import { HUDWorkspace } from "../workspace/HUDWorkspace";
+import { AlexResponseStream, type AlexResponseItem } from "./AlexResponseStream";
 import type { AppSettings, HudStyle } from "../../types/api";
 import type { WorkspaceActivity, WorkspaceActivityType } from "../../types/workspace";
 
@@ -40,6 +41,7 @@ export interface HolographicAssistantProps {
   isStartupDiagnostics?: boolean;
   diagnosticPhase?: string;
   isPanelActive?: boolean;
+  alexResponses?: AlexResponseItem[];
 }
 
 export function HolographicAssistant({
@@ -70,6 +72,7 @@ export function HolographicAssistant({
   onToggleHudStyle,
   geminiStatus,
   geminiModel,
+  alexResponses = [],
 }: HolographicAssistantProps) {
   // Determine dynamic assistant status (Section 4)
   let assistantStatusText = "STANDING BY";
@@ -289,6 +292,15 @@ export function HolographicAssistant({
               : "VOICE SETUP REQUIRED"}
           </span>
         </div>
+      )}
+
+      {/* Right Side: ALEX Live Response Stream (Autoscrolling HUD Stream) */}
+      {!isStartupDiagnostics && (
+        <AlexResponseStream
+          responses={alexResponses}
+          isWorkspaceActive={isWorkspaceActive}
+          isStreaming={speaking || chatBusy}
+        />
       )}
     </main>
   );

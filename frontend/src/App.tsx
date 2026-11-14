@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type FormEvent } from "react";
 
 import { useLiveVoice } from "./hooks/useLiveVoice";
 import { Notice } from "./components/Notice";
@@ -221,6 +221,15 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
   const [metricsUnavailable, setMetricsUnavailable] = useState(false);
   const [metricsError, setMetricsError] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const alexResponses = useMemo(() => {
+    return activity
+      .filter((entry) => entry.kind === "ALEX")
+      .map((entry) => ({
+        id: entry.id,
+        time: entry.time,
+        text: entry.text,
+      }));
+  }, [activity]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatBusy, setChatBusy] = useState(false);
@@ -845,6 +854,9 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
         const wsResult = await executeWorkspaceCommand(input, true);
         if (wsResult.handled) {
           void syncMediaStatus();
+          if (wsResult.replyText) {
+            addActivity("ALEX", wsResult.replyText);
+          }
           setChatMessages((current) => [
             ...current,
             { id: crypto.randomUUID(), role: "user" as const, text: input },
@@ -1991,6 +2003,7 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
           onToggleHudStyle={(style) => void toggleHudStyle(style)}
           geminiStatus={geminiStatus}
           geminiModel={geminiModel}
+          alexResponses={alexResponses}
         />
       </main>
 
