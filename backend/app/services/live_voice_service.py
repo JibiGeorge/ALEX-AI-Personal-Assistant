@@ -67,7 +67,7 @@ class LiveVoiceService:
 
             client = genai.Client(
                 api_key=api_key,
-                http_options=types.HttpOptions(api_version="v1alpha", timeout=10_000),
+                http_options=types.HttpOptions(api_version="v1alpha"),
             )
             declarations = (
                 self._action_registry.model_declarations()
@@ -256,7 +256,7 @@ class LiveVoiceService:
 
         async def receive_model() -> None:
             nonlocal interrupted, typed_text, tool_calls_this_turn, is_executing_tool
-            while True:
+            try:
                 async for response in session.receive():
                     tool_call = getattr(response, "tool_call", None)
                     function_calls = getattr(tool_call, "function_calls", None)
@@ -302,6 +302,9 @@ class LiveVoiceService:
                         tool_calls_this_turn = 0
                         input_parts.clear()
                         output_parts.clear()
+            except Exception as exc:
+                logger.debug("Gemini Live receive stream ended: %s", exc)
+                return
 
         tasks = [asyncio.create_task(send_audio()), asyncio.create_task(receive_model())]
         try:
@@ -412,7 +415,10 @@ class LiveVoiceService:
             return f"Gemini voice session failed (HTTP {error.code})."
         if isinstance(error, ValueError):
             return str(error)
-        return "Gemini voice session could not be started. Check your connection and try again."
+        err_str = str(error).lower()
+        if "closed" in err_str or "disconnect" in err_str:
+            return "Gemini voice streaming session disconnected. Click Reconnect to resume."
+        return "Gemini voice session disconnected. Click Reconnect to resume."
 
     @staticmethod
     async def _fail(websocket: WebSocket, message: str, code: int) -> None:
