@@ -1191,20 +1191,22 @@
 
 .holo-radar-vector {
   position: absolute;
-  inset: -15%;
-  width: 130%;
-  height: 130%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   z-index: 0;
 }
 
 .holo-vector-spin {
-  transform-origin: center center;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
   animation: meter-spin 60s linear infinite;
 }
 
 .holo-vector-crosshairs {
-  transform-origin: center center;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
 }
 
 /* Background adaptation when active workspace window is open */

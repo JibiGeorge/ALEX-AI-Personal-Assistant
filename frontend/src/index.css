@@ -7223,6 +7223,26 @@ a:focus-visible,
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.holo-radar-vector {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.holo-vector-spin {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: meter-spin 60s linear infinite;
+}
+
+.holo-vector-crosshairs {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
 /* Docked Avatar & Concentric Holographic Rings when Job Panel or Workspace is Active (TASK-P3) */
 .hud-center .hud-avatar-stage.in-workspace-mode,
 .hud-avatar-stage.in-workspace-mode,

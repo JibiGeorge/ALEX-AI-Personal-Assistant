@@ -139,7 +139,7 @@ export function HolographicAssistant({
       <div className={`holo-concentric-rings ${isWorkspaceActive ? "in-workspace-mode" : ""}`} aria-hidden="true">
         <svg
           className="holo-radar-vector"
-          viewBox="-500 -500 1000 1000"
+          viewBox="0 0 1000 1000"
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
@@ -158,35 +158,35 @@ export function HolographicAssistant({
           </defs>
 
           {/* Central Glow Aura */}
-          <circle r="460" fill="url(#holoVectorCoreGlow)" />
+          <circle cx="500" cy="500" r="460" fill="url(#holoVectorCoreGlow)" />
 
-          {/* Rotating Vector Arc Group */}
-          <g className="holo-vector-spin">
-            <circle r="440" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeDasharray="8 16" opacity="0.35" />
-            <circle r="380" fill="none" stroke="#087bff" strokeWidth="1.8" strokeDasharray="24 12 6 12" opacity="0.45" />
-            <circle r="320" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeDasharray="4 8" opacity="0.3" />
-            <circle r="260" fill="none" stroke="#00a8cc" strokeWidth="1.4" strokeOpacity="0.4" />
-            <circle r="200" fill="none" stroke="#00e5ff" strokeWidth="2.2" strokeDasharray="160 30" opacity="0.45" filter="url(#holoVectorGlow)" />
-            <circle r="140" fill="none" stroke="#087bff" strokeWidth="1.2" strokeDasharray="40 10 10 10" opacity="0.35" />
-            <circle r="90" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeOpacity="0.35" />
+          {/* Rotating Vector Arc Group (centered at 500, 500) */}
+          <g className="holo-vector-spin" style={{ transformOrigin: "500px 500px" }}>
+            <circle cx="500" cy="500" r="440" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeDasharray="8 16" opacity="0.35" />
+            <circle cx="500" cy="500" r="380" fill="none" stroke="#087bff" strokeWidth="1.8" strokeDasharray="24 12 6 12" opacity="0.45" />
+            <circle cx="500" cy="500" r="320" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeDasharray="4 8" opacity="0.3" />
+            <circle cx="500" cy="500" r="260" fill="none" stroke="#00a8cc" strokeWidth="1.4" strokeOpacity="0.4" />
+            <circle cx="500" cy="500" r="200" fill="none" stroke="#00e5ff" strokeWidth="2.2" strokeDasharray="160 30" opacity="0.45" filter="url(#holoVectorGlow)" />
+            <circle cx="500" cy="500" r="140" fill="none" stroke="#087bff" strokeWidth="1.2" strokeDasharray="40 10 10 10" opacity="0.35" />
+            <circle cx="500" cy="500" r="90" fill="none" stroke="#00e5ff" strokeWidth="1.2" strokeOpacity="0.35" />
 
             {/* Circular Radar Angle Ticks */}
-            <path d="M -300,-120 L -315,-126" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
-            <path d="M 300,-120 L 315,-126" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
-            <path d="M -300,120 L -315,126" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
-            <path d="M 300,120 L 315,126" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
+            <path d="M 200,380 L 185,374" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
+            <path d="M 800,380 L 815,374" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
+            <path d="M 200,620 L 185,626" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
+            <path d="M 800,620 L 815,626" stroke="#00e5ff" strokeWidth="1.8" opacity="0.55" />
           </g>
 
           {/* Axis Crosshairs & Coordinates */}
-          <g className="holo-vector-crosshairs">
-            <line x1="-480" y1="0" x2="-280" y2="0" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
-            <line x1="280" y1="0" x2="480" y2="0" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
-            <line x1="0" y1="-440" x2="0" y2="-280" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
-            <line x1="0" y1="280" x2="0" y2="440" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
+          <g className="holo-vector-crosshairs" style={{ transformOrigin: "500px 500px" }}>
+            <line x1="20" y1="500" x2="220" y2="500" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
+            <line x1="780" y1="500" x2="980" y2="500" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
+            <line x1="500" y1="60" x2="500" y2="220" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
+            <line x1="500" y1="780" x2="500" y2="940" stroke="#00e5ff" strokeWidth="1.2" opacity="0.4" />
 
             {/* Coordinate Target Reticle Ticks */}
-            <line x1="-16" y1="0" x2="16" y2="0" stroke="#00e5ff" strokeWidth="1.5" opacity="0.5" />
-            <line x1="0" y1="-16" x2="0" y2="16" stroke="#00e5ff" strokeWidth="1.5" opacity="0.5" />
+            <line x1="484" y1="500" x2="516" y2="500" stroke="#00e5ff" strokeWidth="1.5" opacity="0.5" />
+            <line x1="500" y1="484" x2="500" y2="516" stroke="#00e5ff" strokeWidth="1.5" opacity="0.5" />
           </g>
         </svg>
 
