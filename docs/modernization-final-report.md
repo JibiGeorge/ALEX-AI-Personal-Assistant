@@ -111,3 +111,4 @@ All existing business logic (Greenhouse/Lever ingest, 10-factor compatibility sc
 1. **Browser Extension / Bookmarklet:** A lightweight companion extension to send the current active job tab directly to ALEX's local endpoint (`POST /api/job-hunting/ingest/url`).
 2. **Offline Local LLM Fallback:** An optional small local model (e.g. Gemma 2B via Ollama/ONNX) to provide basic resume scoring when offline without calling Gemini cloud APIs.
 3. **Application Follow-Up Notifications:** Desktop push notification triggers scheduled 7 days post-application to remind candidates to follow up with hiring teams.
+

@@ -124,6 +124,20 @@ export function ApplicationHeader({
             )}
           </button>
         )}
+
+        {onToggleSystemMonitor && (
+          <button
+            type="button"
+            aria-label="Toggle System Monitor telemetry"
+            aria-expanded={systemMonitorOpen}
+            className={`hud-tool-btn hud-monitor-header-btn ${systemMonitorOpen ? "active" : ""}`}
+            onClick={onToggleSystemMonitor}
+            title="Toggle System Monitor — CPU, RAM, Network & Engine Telemetry"
+          >
+            <span className="hud-tool-icon" aria-hidden="true">⚡</span>
+            <span className="hud-tool-btn-label">MONITOR</span>
+          </button>
+        )}
       </div>
 
       {/* Zone 2: Center — Single Honest Status Indicator */}
@@ -152,22 +166,8 @@ export function ApplicationHeader({
         )}
       </div>
 
-      {/* Zone 3: Right — Tools & Digital Clock */}
+      {/* Zone 3: Right — Digital Clock */}
       <div className="hud-header-right-zone">
-        {onToggleSystemMonitor && (
-          <button
-            type="button"
-            aria-label="Toggle System Monitor telemetry"
-            aria-expanded={systemMonitorOpen}
-            className={`hud-tool-btn ${systemMonitorOpen ? "active" : ""}`}
-            onClick={onToggleSystemMonitor}
-            title="Toggle System Monitor — CPU, RAM, Network & Engine Telemetry"
-          >
-            <span className="hud-tool-icon" aria-hidden="true">⚡</span>
-            <span className="hud-tool-btn-label">MONITOR</span>
-          </button>
-        )}
-
         <div className="hud-clock" aria-label="Current time">
           <strong>
             {clock.toLocaleTimeString([], { hour12: false })}
