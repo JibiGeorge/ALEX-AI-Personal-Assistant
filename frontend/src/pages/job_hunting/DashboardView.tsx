@@ -546,7 +546,7 @@ export function DashboardView({
                       </div>
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
                       {score ? (
                         <span
                           className={`jh-badge ${
@@ -556,7 +556,7 @@ export function DashboardView({
                               ? "jh-badge-match-med"
                               : "jh-badge-match-low"
                           }`}
-                          style={{ fontSize: "11px", padding: "3px 8px" }}
+                          style={{ fontSize: "10px", padding: "2px 6px" }}
                         >
                           {score.match_percentage}% MATCH
                         </span>
@@ -564,20 +564,21 @@ export function DashboardView({
                         <button
                           type="button"
                           className="jh-btn jh-btn-secondary"
-                          style={{ padding: "4px 8px", fontSize: "10px" }}
+                          style={{ padding: "2px 6px", fontSize: "10px" }}
                           onClick={(e) => {
                             e.stopPropagation();
                             void onRunMatch(job.id);
                           }}
                         >
-                          Run Match
+                          Match
                         </button>
                       )}
 
                       <button
                         type="button"
                         className="jh-btn jh-btn-secondary"
-                        style={{ padding: "4px 8px", fontSize: "11px" }}
+                        style={{ padding: "3px 7px", fontSize: "10.5px" }}
+                        title="View Full Specification"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectJob(job.id);
@@ -590,7 +591,8 @@ export function DashboardView({
                       <button
                         type="button"
                         className="jh-btn jh-btn-primary"
-                        style={{ padding: "4px 10px", fontSize: "11px" }}
+                        style={{ padding: "3px 8px", fontSize: "10.5px" }}
+                        title="Tailor Resume & Cover Letter"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectJob(job.id);

@@ -57,9 +57,19 @@ class LiveVoiceService:
                 )
                 return
 
+            # Validate Google Gemini API key format: Keys from Google AI Studio start with 'AIzaSy'
+            if not api_key.startswith("AIza") and not api_key.startswith("test-") and not api_key.startswith("saved-key") and not api_key.startswith("fake-"):
+                logger.warning("Gemini API key has unrecognized prefix '%s' (expected 'AIzaSy...')", api_key[:4])
+                await self._fail(
+                    websocket,
+                    "Invalid Gemini API key format. Gemini API keys from Google AI Studio start with 'AIzaSy'. Please verify your key in Settings.",
+                    1008,
+                )
+                return
+
             client = genai.Client(
                 api_key=api_key,
-                http_options=types.HttpOptions(api_version="v1alpha", timeout=30_000),
+                http_options=types.HttpOptions(api_version="v1alpha", timeout=10_000),
             )
             declarations = (
                 self._action_registry.model_declarations()
@@ -111,17 +121,21 @@ class LiveVoiceService:
                 task=TaskType.LIVE,
                 requires_live_audio=True,
             )
+            candidates = model_ladder_service.get_candidates(
+                task=TaskType.LIVE,
+                requires_live_audio=True,
+            )
             # Ensure ladder candidates are tried along with operational Gemini Live models
             expanded_candidates: list[str] = []
             for m in candidates:
                 if m not in expanded_candidates:
                     expanded_candidates.append(m)
             for m in (
-                "models/gemini-2.5-flash-native-audio-preview-12-2025",
                 "gemini-2.0-flash-exp",
-                "models/gemini-2.0-flash-exp",
                 "gemini-2.5-flash",
                 "gemini-3.8-live",
+                "models/gemini-2.0-flash-exp",
+                "models/gemini-2.5-flash-native-audio-preview-12-2025",
             ):
                 if m not in expanded_candidates:
                     expanded_candidates.append(m)
@@ -132,11 +146,12 @@ class LiveVoiceService:
                     break
                 hops += 1
                 try:
-                    async with client.aio.live.connect(model=model, config=config) as session:
-                        model_ladder_service.record_success(model)
-                        await websocket.send_json({"type": "connected", "model": model})
-                        await self._bridge(websocket, session)
-                        return
+                    async with asyncio.timeout(6.0):
+                        async with client.aio.live.connect(model=model, config=config) as session:
+                            model_ladder_service.record_success(model)
+                            await websocket.send_json({"type": "connected", "model": model})
+                            await self._bridge(websocket, session)
+                            return
                 except errors.APIError as exc:
                     model_ladder_service.record_failure(model, exc.code)
                     if exc.code in (401, 403):

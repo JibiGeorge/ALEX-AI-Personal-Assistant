@@ -631,8 +631,8 @@ export function JobHuntingPage({
         </div>
       </nav>
 
-      {/* Active Target Job Context Bar */}
-      {selectedJob && (
+      {/* Active Target Job Context Bar — shown only when focused on job inspection & tailoring */}
+      {selectedJob && (activeTab === "details" || activeTab === "analysis" || activeTab === "resume" || activeTab === "cover_letter" || activeTab === "compare") && (
         <div className="jh-target-context-bar" role="region" aria-label="Active Target Job">
           <div className="jh-target-info">
             <span className="jh-target-tag">ACTIVE TARGET</span>
