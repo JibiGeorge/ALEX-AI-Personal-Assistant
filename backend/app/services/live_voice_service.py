@@ -57,12 +57,10 @@ class LiveVoiceService:
                 )
                 return
 
-            # Validate Google Gemini API key format: Keys from Google AI Studio start with 'AIzaSy'
-            if not api_key.startswith("AIza") and not api_key.startswith("test-") and not api_key.startswith("saved-key") and not api_key.startswith("fake-"):
-                logger.warning("Gemini API key has unrecognized prefix '%s' (expected 'AIzaSy...')", api_key[:4])
+            if len(api_key.strip()) < 10:
                 await self._fail(
                     websocket,
-                    "Invalid Gemini API key format. Gemini API keys from Google AI Studio start with 'AIzaSy'. Please verify your key in Settings.",
+                    "Gemini API key is invalid or too short. Please verify your key in Settings.",
                     1008,
                 )
                 return
@@ -116,10 +114,6 @@ class LiveVoiceService:
                     )
                 ),
                 tools=[types.Tool(function_declarations=live_declarations)] if live_declarations else None,
-            )
-            candidates = model_ladder_service.get_candidates(
-                task=TaskType.LIVE,
-                requires_live_audio=True,
             )
             candidates = model_ladder_service.get_candidates(
                 task=TaskType.LIVE,

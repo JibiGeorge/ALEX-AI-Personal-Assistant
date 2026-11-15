@@ -499,7 +499,7 @@ export function SettingsPage({
                 maxLength={512}
                 minLength={16}
                 onChange={(event) => setKey(event.target.value)}
-                placeholder="Paste Gemini API key (AIzaSy...)"
+                placeholder="Paste Gemini API key (e.g. AIzaSy... or AQ...)"
                 type={showKey ? "text" : "password"}
                 value={key}
               />
@@ -508,11 +508,6 @@ export function SettingsPage({
               <span aria-hidden="true">▣</span>
               Stored in <code>{keySource}</code> and read directly from this JSON configuration file.
             </div>
-            {key && !key.startsWith("AIza") && !key.startsWith("test-") && (
-              <div style={{ color: "#ffb547", fontSize: "11px", marginTop: "4px" }}>
-                ⚠ Note: Gemini API keys from Google AI Studio begin with "AIzaSy".
-              </div>
-            )}
             <div className="form-actions">
               <button className="button button-secondary" disabled={saving || key.length < 16} type="submit">
                 {saving ? "Saving..." : settings?.api_key_configured ? "Update in api_keys.json" : "Save to api_keys.json"}
