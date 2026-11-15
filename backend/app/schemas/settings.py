@@ -61,7 +61,7 @@ class SettingsResponse(StrictModel):
 
 
 class ApiKeyInput(StrictModel):
-    api_key: str = Field(min_length=16, max_length=512)
+    api_key: str = Field(min_length=10, max_length=512)
 
 
 class ApiKeyResponse(StrictModel):

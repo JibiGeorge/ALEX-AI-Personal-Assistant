@@ -168,10 +168,10 @@ function validateSettings(value: unknown): Partial<AppSettings> {
 function validateApiKey(value: unknown): string {
   if (
     typeof value !== "string" ||
-    value.trim().length < 16 ||
+    value.trim().length < 10 ||
     value.length > 512
   ) {
-    throw new TypeError("API key must contain between 16 and 512 characters");
+    throw new TypeError("API key must contain between 10 and 512 characters");
   }
   return value;
 }

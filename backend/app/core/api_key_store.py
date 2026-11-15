@@ -262,6 +262,6 @@ def delete_gemini_key() -> bool:
 
 
 def is_configured() -> bool:
-    """Return True if a valid Gemini API key is configured (> 15 chars)."""
+    """Return True if a valid Gemini API key is configured (>= 10 chars)."""
     key = resolve_gemini_key()
-    return bool(key and len(key) > 15)
+    return bool(key and len(key.strip()) >= 10)

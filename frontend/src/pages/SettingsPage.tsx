@@ -497,7 +497,7 @@ export function SettingsPage({
               <input
                 autoComplete="new-password"
                 maxLength={512}
-                minLength={16}
+                minLength={10}
                 onChange={(event) => setKey(event.target.value)}
                 placeholder="Paste Gemini API key (e.g. AIzaSy... or AQ...)"
                 type={showKey ? "text" : "password"}
@@ -509,7 +509,7 @@ export function SettingsPage({
               Stored in <code>{keySource}</code> and read directly from this JSON configuration file.
             </div>
             <div className="form-actions">
-              <button className="button button-secondary" disabled={saving || key.length < 16} type="submit">
+              <button className="button button-secondary" disabled={saving || key.length < 10} type="submit">
                 {saving ? "Saving..." : settings?.api_key_configured ? "Update in api_keys.json" : "Save to api_keys.json"}
               </button>
             </div>
