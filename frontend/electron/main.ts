@@ -982,12 +982,37 @@ function registerIpc(): void {
       validateSettings(settings),
     );
   });
+  ipcMain.handle("alex:settings:get-key", async (event) => {
+    assertTrustedSender(event);
+    return backendRequest<{
+      configured: boolean;
+      api_key: string;
+      masked_key: string;
+      source: string;
+      file_path: string;
+    }>("GET", "/api/v1/settings/api-key");
+  });
   ipcMain.handle("alex:settings:key", async (event, key: unknown) => {
     assertTrustedSender(event);
     return backendRequest<{ configured: boolean }>(
       "PUT",
       "/api/v1/settings/api-key",
       { api_key: validateApiKey(key) },
+    );
+  });
+  ipcMain.handle("alex:settings:update-key", async (event, key: unknown) => {
+    assertTrustedSender(event);
+    return backendRequest<{ configured: boolean }>(
+      "PATCH",
+      "/api/v1/settings/api-key",
+      { api_key: validateApiKey(key) },
+    );
+  });
+  ipcMain.handle("alex:settings:delete-key", async (event) => {
+    assertTrustedSender(event);
+    return backendRequest<{ configured: boolean }>(
+      "DELETE",
+      "/api/v1/settings/api-key",
     );
   });
   ipcMain.handle("alex:memory:list", async (event) => {

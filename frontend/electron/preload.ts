@@ -39,7 +39,10 @@ const api: AlexApi = {
   getSettings: () => ipcRenderer.invoke("alex:settings:get"),
   updateSettings: (settings: Partial<AppSettings>) =>
     ipcRenderer.invoke("alex:settings:update", settings),
+  getApiKey: () => ipcRenderer.invoke("alex:settings:get-key"),
   saveApiKey: (key: string) => ipcRenderer.invoke("alex:settings:key", key),
+  updateApiKey: (key: string) => ipcRenderer.invoke("alex:settings:update-key", key),
+  deleteApiKey: () => ipcRenderer.invoke("alex:settings:delete-key"),
   listMemory: () => ipcRenderer.invoke("alex:memory:list"),
   upsertMemory: (category: MemoryCategory, key: string, value: MemoryWrite) =>
     ipcRenderer.invoke("alex:memory:upsert", category, key, value),

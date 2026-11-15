@@ -69,3 +69,36 @@ def test_settings_service_loads_and_saves_keys(tmp_path, monkeypatch):
             # Verify core_gemini.api_key also resolves this key
             assert core_gemini.api_key(refresh=True) == "saved-key-abcdef-1234567890"
 
+
+def test_json_priority_over_env(monkeypatch, tmp_path):
+    config_file = tmp_path / "config" / "api_keys.json"
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(
+        json.dumps({"gemini_api_key": "json-priority-key-123456"}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("ALEX_CONFIG_FILE", str(config_file))
+    monkeypatch.setenv("GEMINI_API_KEY", "stale-env-key-to-ignore")
+
+    assert api_key_store.resolve_gemini_key() == "json-priority-key-123456"
+    assert api_key_store.read_gemini_key() == "json-priority-key-123456"
+
+
+def test_save_update_delete_gemini_key(monkeypatch, tmp_path):
+    target_file = tmp_path / "config" / "api_keys.json"
+    monkeypatch.setenv("ALEX_CONFIG_FILE", str(target_file))
+
+    # 1. Save
+    api_key_store.save_gemini_key("saved-key-1111222233334444")
+    assert target_file.exists()
+    assert api_key_store.read_gemini_key() == "saved-key-1111222233334444"
+
+    # 2. Update
+    api_key_store.save_gemini_key("updated-key-9999888877776666")
+    assert api_key_store.read_gemini_key() == "updated-key-9999888877776666"
+
+    # 3. Delete
+    deleted = api_key_store.delete_gemini_key()
+    assert deleted is True
+    assert api_key_store.read_gemini_key() is None
+

@@ -75,6 +75,8 @@ export function SettingsPage({
     push_to_talk_enabled: false,
   });
   const [key, setKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [keySource, setKeySource] = useState<string>("config/api_keys.json");
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<
     "voice" | "model" | "audio" | "wake" | "theme" | "performance" | "privacy"
@@ -109,6 +111,29 @@ export function SettingsPage({
       setForm((current) => ({ ...current, ...settings.settings }));
     }
   }, [settings]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadKey() {
+      try {
+        const details = await alexApi.getApiKey();
+        if (active && details) {
+          if (details.api_key) {
+            setKey(details.api_key);
+          }
+          if (details.source) {
+            setKeySource(details.source);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not read API key:", err);
+      }
+    }
+    void loadKey();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Enumerate input devices
   useEffect(() => {
@@ -150,7 +175,10 @@ export function SettingsPage({
     setSaving(true);
     try {
       await onSaveKey(key);
-      setKey("");
+      const details = await alexApi.getApiKey();
+      if (details?.api_key) {
+        setKey(details.api_key);
+      }
     } finally {
       setSaving(false);
     }
@@ -446,34 +474,48 @@ export function SettingsPage({
             <div className="panel-heading">
               <div className="panel-icon key-icon">⌑</div>
               <div>
-                <h4>Model credential</h4>
+                <h4>Model Credential</h4>
                 <p>
                   {settings?.api_key_configured
-                    ? "A credential is saved in your operating system's secure store."
-                    : "A Gemini API key is required for text conversation and attached-file analysis."}
+                    ? "Credential configured and active from JSON configuration file."
+                    : "A Gemini API key is required for live voice, conversation, and document analysis."}
                 </p>
               </div>
             </div>
             <label className="field">
-              <span>Gemini API key</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
+                <span>Gemini API Key</span>
+                <button
+                  type="button"
+                  className="button button-small"
+                  onClick={() => setShowKey(!showKey)}
+                  style={{ fontSize: "10px", padding: "2px 8px" }}
+                >
+                  {showKey ? "Hide Key" : "Show Key"}
+                </button>
+              </div>
               <input
                 autoComplete="new-password"
                 maxLength={512}
                 minLength={16}
                 onChange={(event) => setKey(event.target.value)}
-                placeholder={settings?.api_key_configured ? "Enter a new key to replace" : "Paste API key"}
-                type="password"
+                placeholder="Paste Gemini API key (AIzaSy...)"
+                type={showKey ? "text" : "password"}
                 value={key}
               />
             </label>
             <div className="secure-hint">
               <span aria-hidden="true">▣</span>
-              Alex stores this value using the operating system credential manager.
-              It is never returned to the interface.
+              Stored in <code>{keySource}</code> and read directly from this JSON configuration file.
             </div>
+            {key && !key.startsWith("AIza") && !key.startsWith("test-") && (
+              <div style={{ color: "#ffb547", fontSize: "11px", marginTop: "4px" }}>
+                ⚠ Note: Gemini API keys from Google AI Studio begin with "AIzaSy".
+              </div>
+            )}
             <div className="form-actions">
               <button className="button button-secondary" disabled={saving || key.length < 16} type="submit">
-                {saving ? "Saving..." : "Save secure credential"}
+                {saving ? "Saving..." : settings?.api_key_configured ? "Update in api_keys.json" : "Save to api_keys.json"}
               </button>
             </div>
           </form>

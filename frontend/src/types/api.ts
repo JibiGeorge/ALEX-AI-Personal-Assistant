@@ -39,6 +39,14 @@ export interface AppSettings {
   push_to_talk_enabled: boolean;
 }
 
+export interface ApiKeyDetails {
+  configured: boolean;
+  api_key: string;
+  masked_key: string;
+  source: string;
+  file_path: string;
+}
+
 export interface SettingsView {
   settings: AppSettings;
   api_key_configured: boolean;
@@ -291,7 +299,10 @@ export interface AlexApi {
   getActionHistory: () => Promise<{ executions: ActionExecution[] }>;
   getSettings: () => Promise<SettingsView>;
   updateSettings: (settings: Partial<AppSettings>) => Promise<SettingsView>;
+  getApiKey?: () => Promise<ApiKeyDetails>;
   saveApiKey: (key: string) => Promise<{ configured: boolean }>;
+  updateApiKey?: (key: string) => Promise<{ configured: boolean }>;
+  deleteApiKey?: () => Promise<{ configured: boolean }>;
   listMemory: () => Promise<{ entries: MemoryEntry[] }>;
   upsertMemory: (
     category: MemoryCategory,

@@ -29,7 +29,21 @@ export const alexApi = {
   getSettings: () => api().getSettings(),
   updateSettings: (settings: Parameters<AlexApi["updateSettings"]>[0]) =>
     api().updateSettings(settings),
+  getApiKey: () =>
+    api().getApiKey
+      ? api().getApiKey!()
+      : Promise.resolve({
+          configured: false,
+          api_key: "",
+          masked_key: "",
+          source: "config/api_keys.json",
+          file_path: "",
+        }),
   saveApiKey: (key: string) => api().saveApiKey(key),
+  updateApiKey: (key: string) =>
+    api().updateApiKey ? api().updateApiKey!(key) : api().saveApiKey(key),
+  deleteApiKey: () =>
+    api().deleteApiKey ? api().deleteApiKey!() : Promise.resolve({ configured: false }),
   listMemory: () => api().listMemory(),
   upsertMemory: (
     category: Parameters<AlexApi["upsertMemory"]>[0],

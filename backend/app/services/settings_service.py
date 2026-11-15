@@ -7,10 +7,13 @@ from pydantic import ValidationError
 
 from app.core import gemini as core_gemini
 from app.core.api_key_store import (
+    delete_gemini_key,
     is_configured as store_is_configured,
     load_api_keys,
+    read_gemini_key,
     resolve_gemini_key,
     save_api_keys,
+    save_gemini_key,
 )
 from app.core.storage import JsonDocumentStore, StorageError
 from app.schemas.settings import AppSettings, SettingsUpdate
@@ -82,9 +85,28 @@ class SettingsService:
         return settings, self.api_key_configured()
 
     def api_key_configured(self) -> bool:
-        if os.environ.get("GEMINI_API_KEY"):
-            return True
         return store_is_configured()
+
+    def get_api_key(self) -> str | None:
+        """Read the stored Gemini API key directly from config/api_keys.json or resolved store."""
+        return read_gemini_key() or resolve_gemini_key()
+
+    def update_api_key(self, api_key: str) -> bool:
+        """Update the Gemini API key in config/api_keys.json."""
+        return self.save_api_key(api_key)
+
+    def delete_api_key(self) -> bool:
+        """Delete the Gemini API key from config/api_keys.json and keyring."""
+        deleted = delete_gemini_key()
+        try:
+            keyring.delete_password(_SERVICE_NAME, _GEMINI_KEY_NAME)
+        except Exception:
+            pass
+        try:
+            core_gemini.api_key(refresh=True)
+        except Exception:
+            pass
+        return deleted
 
     def save_api_key(self, api_key: str) -> bool:
         key = api_key.strip()
@@ -94,14 +116,14 @@ class SettingsService:
         file_saved = False
         keyring_saved = False
 
-        # 1. Save to config/api_keys.json (Mark-LVI standard)
+        # 1. Save to config/api_keys.json (primary JSON store)
         try:
-            save_api_keys(gemini_api_key=key)
+            save_gemini_key(key)
             file_saved = True
         except Exception as exc:
             logger.warning("Failed to save api key to config file: %s", exc)
 
-        # 2. Save to OS Keyring
+        # 2. Save to OS Keyring (optional fallback)
         try:
             keyring.set_password(_SERVICE_NAME, _GEMINI_KEY_NAME, key)
             keyring_saved = True
@@ -120,5 +142,5 @@ class SettingsService:
         return True
 
     def get_api_key_for_service(self) -> str | None:
-        """Backend-only access for model services; never return through an API."""
+        """Backend access for model services reading directly from config/api_keys.json."""
         return resolve_gemini_key()

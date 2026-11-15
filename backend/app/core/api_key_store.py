@@ -153,18 +153,24 @@ def save_api_keys(
 
 def resolve_gemini_key() -> str | None:
     """
-    Resolve Gemini API key across all tiered sources:
-    1. os.environ['GEMINI_API_KEY']
-    2. OS Keyring (Alex / gemini-api-key)
-    3. config/api_keys.json (gemini_api_key)
-    4. ~/.alex/settings.json (values.gemini_api_key)
+    Resolve Gemini API key across tiered sources with JSON configuration file first:
+    1. config/api_keys.json (gemini_api_key) - PRIMARY
+    2. os.environ['GEMINI_API_KEY'] - Fallback
+    3. OS Keyring (Alex / gemini-api-key) - Fallback
+    4. ~/.alex/settings.json (values.gemini_api_key) - Fallback
     """
-    # 1. Environment variable
+    # 1. Primary source: config/api_keys.json
+    file_cfg = load_api_keys()
+    if file_key := file_cfg.get("gemini_api_key"):
+        if isinstance(file_key, str) and file_key.strip():
+            return file_key.strip()
+
+    # 2. Fallback: Environment variable
     env_key = os.environ.get("GEMINI_API_KEY")
     if env_key and env_key.strip():
         return env_key.strip()
 
-    # 2. System Keyring
+    # 3. Fallback: System Keyring
     try:
         import keyring
         stored = keyring.get_password(_SERVICE_NAME, _GEMINI_KEY_NAME)
@@ -173,13 +179,7 @@ def resolve_gemini_key() -> str | None:
     except Exception as exc:
         logger.debug("Keyring lookup did not provide key: %s", exc)
 
-    # 3. config/api_keys.json
-    file_cfg = load_api_keys()
-    if file_key := file_cfg.get("gemini_api_key"):
-        if isinstance(file_key, str) and file_key.strip():
-            return file_key.strip()
-
-    # 4. Settings JSON document
+    # 4. Fallback: Settings JSON document
     try:
         from app.core.config import get_runtime_settings
         settings_file = get_runtime_settings().resolved_data_dir() / "settings.json"
@@ -192,6 +192,73 @@ def resolve_gemini_key() -> str | None:
         pass
 
     return None
+
+
+def read_gemini_key() -> str | None:
+    """Read the Gemini API key directly from the primary JSON config file."""
+    file_cfg = load_api_keys()
+    if file_key := file_cfg.get("gemini_api_key"):
+        if isinstance(file_key, str) and file_key.strip():
+            return file_key.strip()
+    return None
+
+
+def sync_env_file(key: str) -> None:
+    """Sync GEMINI_API_KEY into local .env files if present."""
+    alex_root, backend_root = get_base_dirs()
+    candidates = [
+        alex_root / ".env",
+        backend_root / ".env",
+    ]
+    for env_path in candidates:
+        if env_path.is_file():
+            try:
+                content = env_path.read_text(encoding="utf-8")
+                lines = content.splitlines()
+                found = False
+                new_lines = []
+                for line in lines:
+                    if line.startswith("GEMINI_API_KEY="):
+                        new_lines.append(f"GEMINI_API_KEY={key}")
+                        found = True
+                    else:
+                        new_lines.append(line)
+                if not found:
+                    new_lines.append(f"GEMINI_API_KEY={key}")
+                env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+                logger.debug("Synced GEMINI_API_KEY to %s", env_path)
+            except Exception as exc:
+                logger.debug("Failed syncing GEMINI_API_KEY to %s: %s", env_path, exc)
+
+
+def save_gemini_key(key: str) -> Path:
+    """Save or update the Gemini API key into the primary JSON configuration file."""
+    clean_key = key.strip()
+    if not clean_key:
+        raise ValueError("API key cannot be blank")
+    target = save_api_keys(gemini_api_key=clean_key)
+    os.environ["GEMINI_API_KEY"] = clean_key
+    sync_env_file(clean_key)
+    return target
+
+
+def delete_gemini_key() -> bool:
+    """Delete the Gemini API key from the primary JSON config file."""
+    target_file = get_primary_config_file()
+    if not target_file.exists():
+        return False
+    try:
+        data = json.loads(target_file.read_text(encoding="utf-8"))
+        if "gemini_api_key" in data:
+            del data["gemini_api_key"]
+            target_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        if "GEMINI_API_KEY" in os.environ:
+            del os.environ["GEMINI_API_KEY"]
+        sync_env_file("")
+        return True
+    except Exception as exc:
+        logger.warning("Failed to delete gemini_api_key from %s: %s", target_file, exc)
+        return False
 
 
 def is_configured() -> bool:

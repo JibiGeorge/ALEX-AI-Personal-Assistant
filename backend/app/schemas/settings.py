@@ -66,3 +66,11 @@ class ApiKeyInput(StrictModel):
 
 class ApiKeyResponse(StrictModel):
     configured: bool
+
+
+class ApiKeyDetailsResponse(StrictModel):
+    configured: bool
+    api_key: str = ""
+    masked_key: str = ""
+    source: str = "config/api_keys.json"
+    file_path: str = ""

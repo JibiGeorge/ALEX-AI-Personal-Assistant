@@ -1412,8 +1412,8 @@ export function App({ forceStartupLifecycle = false }: { forceStartupLifecycle?:
       const next = await alexApi.getSettings();
       setSettings(next);
       setSetupOpen(false);
-      setNotice({ kind: "success", text: "Credential saved to the system keychain." });
-      addActivity("SYS", "Gemini credential saved to the operating-system keychain.");
+      setNotice({ kind: "success", text: "Credential saved to config/api_keys.json." });
+      addActivity("SYS", "Gemini credential saved to config/api_keys.json.");
     } catch (error) {
       setNotice({
         kind: "error",

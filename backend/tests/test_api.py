@@ -968,6 +968,7 @@ def test_api_key_is_never_returned(client, monkeypatch):
         "get_password",
         lambda _, name: saved.get(name),
     )
+    monkeypatch.setattr(keyring, "delete_password", lambda _, name: saved.pop(name, None))
     response = client.put(
         "/api/v1/settings/api-key",
         headers=auth_headers(),
@@ -978,6 +979,33 @@ def test_api_key_is_never_returned(client, monkeypatch):
     settings = client.get("/api/v1/settings", headers=auth_headers())
     assert "api_key" not in settings.json()["settings"]
     assert "a-valid-test-key" not in settings.text
+
+    # Read key details via GET
+    get_res = client.get("/api/v1/settings/api-key", headers=auth_headers())
+    assert get_res.status_code == 200
+    data = get_res.json()
+    assert data["configured"] is True
+    assert data["api_key"] == "a-valid-test-key-that-is-long-enough"
+    assert data["source"] == "config/api_keys.json"
+
+    # Update key via PATCH
+    patch_res = client.patch(
+        "/api/v1/settings/api-key",
+        headers=auth_headers(),
+        json={"api_key": "another-valid-updated-key-12345678"},
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json() == {"configured": True}
+    get_updated = client.get("/api/v1/settings/api-key", headers=auth_headers())
+    assert get_updated.json()["api_key"] == "another-valid-updated-key-12345678"
+
+    # Delete key via DELETE
+    del_res = client.delete("/api/v1/settings/api-key", headers=auth_headers())
+    assert del_res.status_code == 200
+    assert del_res.json() == {"configured": False}
+    get_deleted = client.get("/api/v1/settings/api-key", headers=auth_headers())
+    assert get_deleted.json()["configured"] is False
+    assert get_deleted.json()["api_key"] == ""
 
 
 def test_memory_crud(client):

@@ -33,6 +33,7 @@ from app.schemas.reminder import Reminder, ReminderCreate, ReminderList
 from app.schemas.system_alert import SystemAlertList
 from app.schemas.system_verification import FullSystemVerificationReport
 from app.schemas.settings import (
+    ApiKeyDetailsResponse,
     ApiKeyInput,
     ApiKeyResponse,
     SettingsResponse,
@@ -360,6 +361,28 @@ def update_settings(
     return SettingsResponse(settings=settings, api_key_configured=configured)
 
 
+@router.get("/settings/api-key", response_model=ApiKeyDetailsResponse)
+def get_api_key(request: Request) -> ApiKeyDetailsResponse:
+    service = request.app.state.settings_service
+    key = service.get_api_key() or ""
+    configured = service.api_key_configured()
+    from app.core.api_key_store import find_existing_config_file, get_primary_config_file
+    path_obj = find_existing_config_file() or get_primary_config_file()
+    masked = ""
+    if key:
+        if len(key) > 8:
+            masked = key[:6] + "..." + key[-4:]
+        else:
+            masked = "..."
+    return ApiKeyDetailsResponse(
+        configured=configured,
+        api_key=key,
+        masked_key=masked,
+        source="config/api_keys.json",
+        file_path=str(path_obj),
+    )
+
+
 @router.put("/settings/api-key", response_model=ApiKeyResponse)
 def set_api_key(request: Request, body: ApiKeyInput) -> ApiKeyResponse:
     try:
@@ -375,6 +398,29 @@ def set_api_key(request: Request, body: ApiKeyInput) -> ApiKeyResponse:
             detail=str(exc),
         ) from exc
     return ApiKeyResponse(configured=configured)
+
+
+@router.patch("/settings/api-key", response_model=ApiKeyResponse)
+def patch_api_key(request: Request, body: ApiKeyInput) -> ApiKeyResponse:
+    try:
+        configured = request.app.state.settings_service.update_api_key(body.api_key)
+    except CredentialStoreError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    return ApiKeyResponse(configured=configured)
+
+
+@router.delete("/settings/api-key", response_model=ApiKeyResponse)
+def delete_api_key_route(request: Request) -> ApiKeyResponse:
+    request.app.state.settings_service.delete_api_key()
+    return ApiKeyResponse(configured=False)
 
 
 @router.get("/memory", response_model=MemoryListResponse)
